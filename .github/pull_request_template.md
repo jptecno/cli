@@ -4,7 +4,7 @@
 
 ## Alterações
 
-- 
+-
 
 ## Comportamento e compatibilidade
 
@@ -40,12 +40,13 @@
 - [ ] `npm pack --dry-run` quando houver impacto no pacote
 - [ ] Outros comandos ou evidências:
 
-## Homologação e produção
+## Homologação, release e produção
 
-<!-- Obrigatório em PRs de development para main. Em PRs para development, escreva "Não se aplica". -->
+<!-- Obrigatório em PRs de development para main. Em PRs para development, escreva "Não se aplica". O Release Please calcula a versão a partir dos commits convencionais; não crie tags ou Release PRs manualmente. -->
 
 - Ambiente de homologação e resultado:
 - Impacto de produção:
+- Próxima versão esperada (`fix` = patch, `feat` = minor, ou sem release):
 - Plano de rollback:
 
 ## Checklist
@@ -54,3 +55,4 @@
 - [ ] Mudança revisada e sem credenciais, tokens ou dados sensíveis.
 - [ ] Testes adicionados ou atualizados quando aplicável.
 - [ ] Documentação atualizada quando a experiência de uso mudou.
+- [ ] Para PRs de `development` para `main`, a Release PR e a PR automática de sincronização `main` → `development` foram consideradas no plano de promoção.
