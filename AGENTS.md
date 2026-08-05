@@ -121,6 +121,6 @@ Use Conventional Commits em português brasileiro, com escopo quando ele tornar 
 - `test(registry): cobre referência de tag inválida`
 - `chore(tooling): configura biome`
 
-Pull requests para `development` devem explicar a alteração de comportamento do comando, templates ou registry afetados, impactos de compatibilidade e os comandos de validação executados. Inclua exemplos de uso para mudanças na interface da CLI. Pull requests de `development` para `main` devem registrar a homologação realizada e o impacto de produção.
+Use `.github/pull_request_template.md` como modelo obrigatório para todos os pull requests. Pull requests para `development` devem explicar resumo, alteração de comportamento do comando, templates ou registry afetados, camadas impactadas, compatibilidade, configuração/segurança e comandos de validação executados. Inclua exemplos de uso e saída para mudanças na interface da CLI. Pull requests de `development` para `main` devem preencher também a homologação realizada, impacto de produção e plano de rollback.
 
 Ao publicar, atualize a versão em `package.json`, execute as validações em `development`, faça o pull request de promoção para `main` e gere a tag Git correspondente após o merge. O workflow `.github/workflows/publish.yml` publica o pacote sob o escopo `@jptecno` por OIDC/Trusted Publishing. A tag deve corresponder exatamente à versão de `package.json`, pertencer ao histórico de `main` e nunca deve ser criada a partir de `development` ou de uma branch de trabalho. Não use nem versione `NPM_TOKEN`.
