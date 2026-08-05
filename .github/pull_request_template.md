@@ -56,3 +56,4 @@
 - [ ] Testes adicionados ou atualizados quando aplicável.
 - [ ] Documentação atualizada quando a experiência de uso mudou.
 - [ ] Para PRs de `development` para `main`, a Release PR e a PR automática de sincronização `main` → `development` foram consideradas no plano de promoção.
+- [ ] Não será usado `--delete-branch` em PRs cuja origem seja `development` ou `main`; essas são branches permanentes.
