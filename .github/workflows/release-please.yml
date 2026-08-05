@@ -55,6 +55,10 @@ jobs:
         if: ${{ steps.release.outputs.release_created == 'true' }}
         run: npm run check
 
+      - name: Inspect package contents
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: npm pack --dry-run
+
       - name: Publish with provenance
         if: ${{ steps.release.outputs.release_created == 'true' }}
         run: npm publish --provenance
