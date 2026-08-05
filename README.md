@@ -118,66 +118,35 @@ Para pull requests de `development` para `main`, preencha também homologação,
 
 ## Versionamento e releases
 
-A CLI usa [SemVer](https://semver.org/):
+A CLI usa [SemVer](https://semver.org/) e o Release Please calcula a próxima versão a partir dos commits convencionais em `main`:
 
-| Alteração                            | Próxima versão                       |
-| ------------------------------------ | ------------------------------------ |
-| Correção compatível                  | Patch, por exemplo `0.1.0` → `0.1.1` |
-| Nova funcionalidade compatível       | Minor, por exemplo `0.1.0` → `0.2.0` |
-| Alteração incompatível após `v1.0.0` | Major, por exemplo `1.2.0` → `2.0.0` |
+| Commit                                          | Próxima versão                       |
+| ----------------------------------------------- | ------------------------------------ |
+| `fix(...)`                                      | Patch, por exemplo `0.2.1` → `0.2.2` |
+| `feat(...)`                                     | Minor, por exemplo `0.2.1` → `0.3.0` |
+| `feat(...)!` ou `BREAKING CHANGE` após `v1.0.0` | Major, por exemplo `1.2.0` → `2.0.0` |
 
-Enquanto a CLI estiver em `0.x`, novos recursos ou alterações incompatíveis usam incremento minor. Portanto, a inclusão de `template list` e do seletor navegável deve ser publicada como `0.2.0`.
+Enquanto a CLI estiver em `0.x`, funcionalidades novas e alterações incompatíveis recebem incremento minor. Commits que não representam mudança publicável, como `docs`, `test`, `ci` e `chore`, não abrem uma Release PR por si só.
 
 ### Criar uma release
 
-Após a homologação em `development`, crie uma branch de release em um worktree:
+1. Promova a alteração homologada por pull request de `development` para `main`.
+2. Após o merge, o workflow **Release Please** cria ou atualiza automaticamente uma Release PR em `main`, com `package.json`, `package-lock.json`, `CHANGELOG.md` e `.release-please-manifest.json`.
+3. Revise e faça merge da Release PR. O mesmo workflow cria a tag imutável, a GitHub Release e publica `@jptecno/cli` no npm com provenance.
+4. Depois da publicação, o workflow abre uma PR `chore/sync-release-vX.Y.Z` de `main` para `development`. Revise e faça o merge para manter as branches sincronizadas.
 
-```sh
-git worktree add ../cli-release-0-2-0 -b chore/release-0.2.0 development
-cd ../cli-release-0-2-0
-npm version 0.2.0 --no-git-tag-version
-npm run check
-npm pack --dry-run
-```
-
-Abra o pull request da release para `development`, valide no ambiente de testes e, em seguida, promova `development` para `main`. Após o merge em `main`, crie uma tag imutável com a mesma versão de `package.json`:
-
-```sh
-git switch main
-git pull --ff-only origin main
-git tag v0.2.0
-git push origin v0.2.0
-```
-
-Nunca reutilize uma versão npm ou tag Git já publicada.
+Não crie versões com `npm version`, não crie tags manualmente e não reutilize uma versão npm ou tag Git já publicada. Nunca use `--delete-branch` em PRs cuja origem seja `development` ou `main`.
 
 ## Publicação
 
-1. Atualize a versão em `package.json` na branch de release.
-2. Execute `npm run check` e `npm pack --dry-run`.
-3. Promova a alteração por pull request para `development` e valide-a no ambiente de testes.
-4. Abra e aprove o pull request de `development` para `main`.
-5. Após o merge em `main`, crie e envie a tag Git correspondente. O workflow `Publish package` validará a tag, executará o check e publicará automaticamente o pacote no npm.
+A publicação é exclusiva do workflow **Release Please**, acionado após o merge de uma Release PR. Ele executa `npm ci`, `npm run check` e `npm publish --provenance` na revisão marcada pela release. A publicação só acontece depois que essas validações passam.
 
 ### Trusted Publishing no npm
 
-O workflow de publicação usa OpenID Connect (OIDC) e não requer `NPM_TOKEN`. Depois que o pacote existir no npm e o workflow estiver em `main`, cadastre o repositório `jptecno/cli` como Trusted Publisher nas configurações do pacote. No campo de workflow, informe somente `publish.yml` e não configure um environment, pois o workflow não usa GitHub Environments.
+O workflow usa OpenID Connect (OIDC) e não requer `NPM_TOKEN`. Nas configurações de Trusted Publisher do pacote `@jptecno/cli`, cadastre:
 
-A tag deve ser criada a partir de um commit já presente em `main` e corresponder exatamente à versão de `package.json`:
+- repositório: `jptecno/cli`;
+- workflow: somente `release-please.yml`;
+- environment: vazio.
 
-```sh
-git switch main
-git pull --ff-only origin main
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-O workflow executa `npm publish --provenance` com acesso público. Provenance só pode ser gerada pelo GitHub Actions/OIDC; uma publicação local não possui um provider compatível.
-
-Para criar o pacote público pela primeira vez, após autenticar no npm, execute localmente sem a flag de provenance:
-
-```sh
-npm publish --access public
-```
-
-Em seguida, configure o Trusted Publisher no npm. As próximas versões devem ser publicadas exclusivamente pelo workflow acionado pela tag. Nunca adicione tokens npm ao repositório.
+O campo aceita apenas o nome do arquivo, não `.github/workflows/release-please.yml`. O `repository.url` de `package.json` deve continuar sendo `https://github.com/jptecno/cli`, pois o npm o valida contra a provenance. Nunca adicione tokens npm ao repositório.
