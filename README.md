@@ -8,12 +8,27 @@ CLI para criar projetos padronizados a partir dos templates da JP Tecno.
 npx @jptecno/cli init billing-api
 ```
 
-O comando lista os templates do registry, solicita as variáveis definidas pelo template e cria o projeto no diretório informado.
+Quando `--template` não é informado em um terminal interativo, o comando apresenta um menu navegável. Use `↑` e `↓` para escolher um template e `Enter` para confirmar. Use `Ctrl+C` ou `Esc` para cancelar.
+
+Em scripts, pipes ou CI, informe `--template <id>` para evitar uma seleção interativa.
+
+### Listar templates
+
+```sh
+npx @jptecno/cli template list
+```
+
+Para consultar outro catálogo:
+
+```sh
+npx @jptecno/cli template list --registry https://exemplo.com/registry.json
+```
 
 ### Opções
 
 ```text
 jp init <diretório> [opções]
+jp template list [--registry <url>]
 
 --template <id>       Seleciona o template sem abrir o seletor.
 --set chave=valor     Define uma variável do template. Pode ser repetido.
