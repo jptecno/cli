@@ -28,6 +28,9 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      - name: Remove deprecated npm config
+        run: npm config delete always-auth
+
       - name: Verify tag matches package version
         run: >-
           node --input-type=module --eval
