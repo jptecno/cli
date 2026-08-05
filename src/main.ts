@@ -6,27 +6,33 @@ import { ProcessCommandExecutor } from './adapters/process-command-executor.js';
 import { ReadlinePrompt } from './adapters/readline-prompt.js';
 import { CliError } from './application/cli-error.js';
 import { createProject } from './application/create-project.js';
-import { parseInitCommand } from './application/parse-command.js';
+import { formatTemplateList } from './application/format-template-list.js';
+import { parseCliCommand } from './application/parse-cli-command.js';
 
 try {
-  const options = parseInitCommand(process.argv.slice(2));
-  const prompt = new ReadlinePrompt();
-  const registry = await new GitHubRegistryClient().load(options.registryUrl);
-  const templateId =
-    options.templateId ?? (await prompt.selectTemplate(registry.templates));
-  const template = await createProject(
-    registry,
-    { ...options, templateId },
-    {
-      templateSource: new GitHubTemplateSource(),
-      commandExecutor: new ProcessCommandExecutor(),
-      prompt,
-    },
-  );
+  const command = parseCliCommand(process.argv.slice(2));
+  const registry = await new GitHubRegistryClient().load(command.registryUrl);
 
-  console.log(
-    `Projeto criado com ${template.name} ${template.version} em ${options.destination}`,
-  );
+  if (command.kind === 'template-list') {
+    console.log(formatTemplateList(registry.templates));
+  } else {
+    const prompt = new ReadlinePrompt();
+    const templateId =
+      command.templateId ?? (await prompt.selectTemplate(registry.templates));
+    const template = await createProject(
+      registry,
+      { ...command, templateId },
+      {
+        templateSource: new GitHubTemplateSource(),
+        commandExecutor: new ProcessCommandExecutor(),
+        prompt,
+      },
+    );
+
+    console.log(
+      `Projeto criado com ${template.name} ${template.version} em ${command.destination}`,
+    );
+  }
 } catch (error) {
   const message =
     error instanceof CliError
