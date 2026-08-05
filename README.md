@@ -8,12 +8,27 @@ CLI para criar projetos padronizados a partir dos templates da JP Tecno.
 npx @jptecno/cli init billing-api
 ```
 
-O comando lista os templates do registry, solicita as variáveis definidas pelo template e cria o projeto no diretório informado.
+Quando `--template` não é informado em um terminal interativo, o comando apresenta um menu navegável. Use `↑` e `↓` para escolher um template e `Enter` para confirmar. Use `Ctrl+C` ou `Esc` para cancelar.
+
+Em scripts, pipes ou CI, informe `--template <id>` para evitar uma seleção interativa.
+
+### Listar templates
+
+```sh
+npx @jptecno/cli template list
+```
+
+Para consultar outro catálogo:
+
+```sh
+npx @jptecno/cli template list --registry https://exemplo.com/registry.json
+```
 
 ### Opções
 
 ```text
 jp init <diretório> [opções]
+jp template list [--registry <url>]
 
 --template <id>       Seleciona o template sem abrir o seletor.
 --set chave=valor     Define uma variável do template. Pode ser repetido.
@@ -88,9 +103,57 @@ Fluxo de promoção:
 
 Não faça push direto em `development` ou `main`. Configure proteções de branch, revisões obrigatórias e checks obrigatórios no GitHub. Segredos e configurações de testes/produção devem ser configurados no provedor de deploy por ambiente, nunca em branches ou arquivos versionados.
 
+### Modelo de pull request
+
+Todo pull request deve usar [`.github/pull_request_template.md`](./.github/pull_request_template.md). O modelo exige:
+
+- resumo e lista objetiva das alterações;
+- comportamento e compatibilidade;
+- camadas afetadas;
+- exemplos de uso e saída quando a interface da CLI mudar;
+- impacto de configuração e segurança;
+- comandos e evidências de validação.
+
+Para pull requests de `development` para `main`, preencha também homologação, impacto de produção e plano de rollback. Não remova seções aplicáveis; registre `Sem impacto` ou `Não se aplica` quando necessário.
+
+## Versionamento e releases
+
+A CLI usa [SemVer](https://semver.org/):
+
+| Alteração                            | Próxima versão                       |
+| ------------------------------------ | ------------------------------------ |
+| Correção compatível                  | Patch, por exemplo `0.1.0` → `0.1.1` |
+| Nova funcionalidade compatível       | Minor, por exemplo `0.1.0` → `0.2.0` |
+| Alteração incompatível após `v1.0.0` | Major, por exemplo `1.2.0` → `2.0.0` |
+
+Enquanto a CLI estiver em `0.x`, novos recursos ou alterações incompatíveis usam incremento minor. Portanto, a inclusão de `template list` e do seletor navegável deve ser publicada como `0.2.0`.
+
+### Criar uma release
+
+Após a homologação em `development`, crie uma branch de release em um worktree:
+
+```sh
+git worktree add ../cli-release-0-2-0 -b chore/release-0.2.0 development
+cd ../cli-release-0-2-0
+npm version 0.2.0 --no-git-tag-version
+npm run check
+npm pack --dry-run
+```
+
+Abra o pull request da release para `development`, valide no ambiente de testes e, em seguida, promova `development` para `main`. Após o merge em `main`, crie uma tag imutável com a mesma versão de `package.json`:
+
+```sh
+git switch main
+git pull --ff-only origin main
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Nunca reutilize uma versão npm ou tag Git já publicada.
+
 ## Publicação
 
-1. Atualize a versão em `package.json` na branch de trabalho.
+1. Atualize a versão em `package.json` na branch de release.
 2. Execute `npm run check` e `npm pack --dry-run`.
 3. Promova a alteração por pull request para `development` e valide-a no ambiente de testes.
 4. Abra e aprove o pull request de `development` para `main`.
