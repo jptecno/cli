@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { CliError } from '../../src/application/cli-error.js';
-import { parseInitCommand } from '../../src/application/parse-command.js';
+import { parseCliCommand } from '../../src/application/parse-cli-command.js';
 
-describe('parseInitCommand', () => {
-  it('lê destino, template, variáveis e flags de execução', () => {
+describe('parseCliCommand', () => {
+  it('lê destino, template, variáveis e flags do init', () => {
     expect(
-      parseInitCommand([
+      parseCliCommand([
         'init',
         'billing-api',
         '--template',
@@ -20,6 +20,7 @@ describe('parseInitCommand', () => {
         '--no-validate',
       ]),
     ).toMatchObject({
+      kind: 'init',
       destination: 'billing-api',
       templateId: 'api-nodejs-typescript',
       values: {
@@ -34,10 +35,25 @@ describe('parseInitCommand', () => {
 
   it('desabilita a validação quando a instalação é desabilitada', () => {
     expect(
-      parseInitCommand(['init', 'billing-api', '--no-install']),
+      parseCliCommand(['init', 'billing-api', '--no-install']),
     ).toMatchObject({
+      kind: 'init',
       installDependencies: false,
       validateProject: false,
+    });
+  });
+
+  it('lê template list com registry alternativo', () => {
+    expect(
+      parseCliCommand([
+        'template',
+        'list',
+        '--registry',
+        'https://example.com/registry.json',
+      ]),
+    ).toEqual({
+      kind: 'template-list',
+      registryUrl: 'https://example.com/registry.json',
     });
   });
 
@@ -47,11 +63,14 @@ describe('parseInitCommand', () => {
     ['init'],
     ['init', 'billing-api', '--set', 'projectName'],
     ['init', 'billing-api', '--unknown', 'value'],
+    ['template'],
+    ['template', 'list', '--registry'],
+    ['template', 'list', '--unknown'],
   ];
 
   for (const arguments_ of invalidArgumentLists) {
     it(`rejeita argumentos inválidos: ${JSON.stringify(arguments_)}`, () => {
-      expect(() => parseInitCommand(arguments_)).toThrow(CliError);
+      expect(() => parseCliCommand(arguments_)).toThrow(CliError);
     });
   }
 });

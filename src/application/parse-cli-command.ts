@@ -1,6 +1,7 @@
 import { CliError } from './cli-error.js';
 
 export interface InitCommandOptions {
+  kind: 'init';
   destination: string;
   templateId?: string;
   registryUrl: string;
@@ -10,16 +11,31 @@ export interface InitCommandOptions {
   validateProject: boolean;
 }
 
+export interface TemplateListCommandOptions {
+  kind: 'template-list';
+  registryUrl: string;
+}
+
+export type CliCommandOptions = InitCommandOptions | TemplateListCommandOptions;
+
 const defaultRegistryUrl =
   'https://raw.githubusercontent.com/jptecno/template-registry/main/registry.json';
 
-export function parseInitCommand(arguments_: string[]): InitCommandOptions {
-  if (arguments_[0] !== 'init') {
-    throw new CliError(
-      'Uso: jp init <diretório> [--template <id>] [--set chave=valor]',
-    );
+export function parseCliCommand(arguments_: string[]): CliCommandOptions {
+  if (arguments_[0] === 'init') {
+    return parseInitCommand(arguments_);
   }
 
+  if (arguments_[0] === 'template' && arguments_[1] === 'list') {
+    return parseTemplateListCommand(arguments_.slice(2));
+  }
+
+  throw new CliError(
+    'Uso: jp init <diretório> [--template <id>] [--set chave=valor] ou jp template list',
+  );
+}
+
+function parseInitCommand(arguments_: string[]): InitCommandOptions {
   const destination = arguments_[1];
 
   if (!destination || destination.startsWith('--')) {
@@ -27,6 +43,7 @@ export function parseInitCommand(arguments_: string[]): InitCommandOptions {
   }
 
   const options: InitCommandOptions = {
+    kind: 'init',
     destination,
     registryUrl: defaultRegistryUrl,
     values: {},
@@ -78,6 +95,34 @@ export function parseInitCommand(arguments_: string[]): InitCommandOptions {
       throw new CliError(`Opção desconhecida: ${argument}`);
     }
 
+    index += 1;
+  }
+
+  return options;
+}
+
+function parseTemplateListCommand(
+  arguments_: string[],
+): TemplateListCommandOptions {
+  const options: TemplateListCommandOptions = {
+    kind: 'template-list',
+    registryUrl: defaultRegistryUrl,
+  };
+
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+
+    if (argument !== '--registry') {
+      throw new CliError(`Opção desconhecida: ${argument}`);
+    }
+
+    const value = arguments_[index + 1];
+
+    if (!value) {
+      throw new CliError('A opção --registry exige um valor');
+    }
+
+    options.registryUrl = value;
     index += 1;
   }
 
