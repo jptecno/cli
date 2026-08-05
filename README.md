@@ -94,4 +94,27 @@ Não faça push direto em `development` ou `main`. Configure proteções de bran
 2. Execute `npm run check` e `npm pack --dry-run`.
 3. Promova a alteração por pull request para `development` e valide-a no ambiente de testes.
 4. Abra e aprove o pull request de `development` para `main`.
-5. Após o merge em `main`, crie a tag Git correspondente e publique o pacote no npm sob o escopo `@jptecno`.
+5. Após o merge em `main`, crie e envie a tag Git correspondente. O workflow `Publish package` validará a tag, executará o check e publicará automaticamente o pacote no npm.
+
+### Trusted Publishing no npm
+
+O workflow de publicação usa OpenID Connect (OIDC) e não requer `NPM_TOKEN`. Depois que o pacote existir no npm e o workflow estiver em `main`, cadastre o repositório `jptecno/cli` como Trusted Publisher nas configurações do pacote. No campo de workflow, informe somente `publish.yml` e não configure um environment, pois o workflow não usa GitHub Environments.
+
+A tag deve ser criada a partir de um commit já presente em `main` e corresponder exatamente à versão de `package.json`:
+
+```sh
+git switch main
+git pull --ff-only origin main
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+O workflow executa `npm publish --provenance` com acesso público. Provenance só pode ser gerada pelo GitHub Actions/OIDC; uma publicação local não possui um provider compatível.
+
+Para criar o pacote público pela primeira vez, após autenticar no npm, execute localmente sem a flag de provenance:
+
+```sh
+npm publish --access public
+```
+
+Em seguida, configure o Trusted Publisher no npm. As próximas versões devem ser publicadas exclusivamente pelo workflow acionado pela tag. Nunca adicione tokens npm ao repositório.
