@@ -95,12 +95,18 @@ Promove a versão homologada.
     ]);
   });
 
-  it('isenta a Release PR do Release Please das políticas de redação e fluxo', () => {
+  it('aceita a Release PR do Release Please com o cabeçalho configurado', () => {
     expect(
       evaluatePullRequest(
         facts({
           title: 'chore(main): release 0.3.0',
-          body: ':robot: I have created a release *beep* *boop*',
+          body: `## Resumo
+
+Release preparada pelo Release Please a partir dos commits convencionais.
+
+## Configuração e segurança
+
+Apenas bump de versão e changelog.`,
           baseBranch: 'main',
           headBranch: 'release-please--branches--main--components--cli',
           author: 'github-actions[bot]',
@@ -110,8 +116,41 @@ Promove a versão homologada.
             'package-lock.json',
             'package.json',
           ],
-          additions: 60,
-          deletions: 4,
+        }),
+      ),
+    ).toEqual({ failures: [], warnings: [] });
+  });
+
+  it('exige resumo da Release PR, que não é dispensada da redação', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          title: 'chore(main): release 0.3.0',
+          body: ':robot: I have created a release *beep* *boop*',
+          baseBranch: 'main',
+          headBranch: 'release-please--branches--main--components--cli',
+          author: 'github-actions[bot]',
+        }),
+      ).failures,
+    ).toEqual(['Preencha a seção Resumo com uma descrição objetiva.']);
+  });
+
+  it('aceita a pull request de sincronização de release vinda do workflow', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          title: 'chore(release): sincroniza v0.3.0 em development',
+          body: `## Resumo
+
+Sincroniza a release v0.3.0 de main para development.
+
+## Configuração e segurança
+
+Sem impacto.`,
+          baseBranch: 'development',
+          headBranch: 'chore/sync-release-v0.3.0',
+          author: 'github-actions[bot]',
+          files: ['package.json', 'package-lock.json', 'CHANGELOG.md'],
         }),
       ),
     ).toEqual({ failures: [], warnings: [] });
@@ -122,7 +161,7 @@ Promove a versão homologada.
       evaluatePullRequest(
         facts({
           title: 'chore(main): release 0.3.0',
-          body: null,
+          body: '## Resumo\n\nRelease preparada pelo Release Please.',
           baseBranch: 'main',
           headBranch: 'release-please--branches--main--components--cli',
           author: 'github-actions[bot]',
@@ -132,7 +171,7 @@ Promove a versão homologada.
     ).toEqual(['Não versione artefatos gerados: dist/main.js.']);
   });
 
-  it('não isenta branch de release aberta por autor humano', () => {
+  it('não aceita branch de release aberta por autor humano como origem para main', () => {
     const failures = evaluatePullRequest(
       facts({
         title: 'chore(main): release 0.3.0',
