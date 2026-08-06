@@ -15,6 +15,8 @@ Mantenha as versões e os scripts definidos em `package.json` como fonte de verd
 
 Este arquivo é a fonte canônica e autocontida das regras operacionais para Claude Code, OpenCode, Codex, Cursor, Gemini CLI e demais agentes. Não dependa de links ou de outros documentos para encontrar instruções obrigatórias. `CONTRIBUTING.md` explica o processo para contribuidores humanos e complementa este arquivo, mas não substitui nenhuma regra abaixo.
 
+Agentes não devem criar commits, fazer push, abrir ou atualizar pull requests, fazer merge, criar tags, publicar releases ou executar outras operações remotas sem solicitação explícita do usuário. Instruções operacionais abaixo descrevem o fluxo permitido, não concedem autorização para executá-lo autonomamente.
+
 ## Arquitetura e Estrutura
 
 A CLI mantém separação simples entre fluxo de aplicação e detalhes de infraestrutura:
