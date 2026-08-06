@@ -14,11 +14,12 @@ export function parseTemplateRegistry(value: unknown): TemplateRegistry {
   }
 
   const templates = value.templates.map(parseTemplateDefinition);
-  ensureTemplateIdsAreUnique(templates);
 
   if (templates.length === 0) {
     throw new CliError('O catálogo de templates não possui entradas');
   }
+
+  ensureTemplateIdsAreUnique(templates);
 
   return { schemaVersion: 1, templates };
 }
@@ -93,5 +94,5 @@ function readRequiredString(
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
