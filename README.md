@@ -32,11 +32,17 @@ jp template list [--registry <url>]
 
 --template <id>       Seleciona o template sem abrir o seletor.
 --set chave=valor     Define uma variável do template. Pode ser repetido.
---registry <url>      Sobrescreve a URL do registry.
+--registry <url>      Sobrescreve a URL do registry (exige https).
 --no-git              Não executa git init.
 --no-install          Não executa npm install nem npm run check.
 --no-validate         Não executa npm run check.
+--help, -h            Mostra a ajuda e sai com código 0.
+--version, -v         Mostra a versão instalada e sai com código 0.
 ```
+
+Executar `jp` sem argumentos também mostra a ajuda e sai com código 0. Um argumento desconhecido é um erro (código de saída 1) e a mensagem sugere `jp --help`.
+
+O `--registry` deve usar `https://`; o CLI rejeita `http://`, `file://` e URLs malformadas. Ao informar um registry diferente do padrão, o CLI avisa em stderr que um registry de terceiros controla qual código é baixado e executado.
 
 Exemplo não interativo:
 

@@ -4,5 +4,16 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     passWithNoTests: false,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      include: ['src/**/*.ts'],
+      thresholds: {
+        lines: 85,
+        statements: 85,
+        functions: 95,
+        branches: 85,
+      },
+    },
   },
 });

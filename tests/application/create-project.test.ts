@@ -1,6 +1,8 @@
 import {
   access,
+  mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rm,
   symlink,
@@ -18,6 +20,7 @@ import type {
   Prompt,
   TemplateSource,
 } from '../../src/contracts/cli-ports.js';
+import type { TemplateVariable } from '../../src/contracts/template-manifest.types.js';
 import type { TemplateRegistry } from '../../src/contracts/template-registry.types.js';
 
 const registry: TemplateRegistry = {
@@ -33,6 +36,16 @@ const registry: TemplateRegistry = {
     },
   ],
 };
+
+function getFirstTemplate(): TemplateRegistry['templates'][number] {
+  const [firstTemplate] = registry.templates;
+
+  if (!firstTemplate) {
+    throw new Error('Fixture de teste inválida: registry sem templates');
+  }
+
+  return firstTemplate;
+}
 
 const temporaryDirectories: string[] = [];
 
@@ -141,7 +154,7 @@ describe('createProject', () => {
           templateSource: {
             materialize: async (_template, target) => {
               await createTemplateSource().materialize(
-                registry.templates[0],
+                getFirstTemplate(),
                 target,
               );
               await writeFile(
@@ -180,7 +193,7 @@ describe('createProject', () => {
           templateSource: {
             materialize: async (_template, target) => {
               await createTemplateSource().materialize(
-                registry.templates[0],
+                getFirstTemplate(),
                 target,
               );
               await writeFile(join(target, 'manifest-source.json'), '{}');
@@ -275,6 +288,407 @@ describe('createProject', () => {
       ),
     ).rejects.toThrow('O valor da variável projectName é inválido');
   });
+
+  it('preserva um placeholder não declarado embutido em um valor, tanto em JSON quanto em texto puro', async () => {
+    const destination = await createTemporaryDirectory();
+
+    await createProject(
+      registry,
+      {
+        destination,
+        templateId: 'api-nodejs-typescript',
+        values: {
+          projectName: 'billing-api',
+          description: '{{naoDeclarada}}',
+        },
+        initializeGit: false,
+        installDependencies: false,
+        validateProject: false,
+      },
+      {
+        templateSource: createTemplateSource(),
+        commandExecutor: createCommandExecutor(),
+        prompt: createPrompt(),
+      },
+    );
+
+    const packageJson = JSON.parse(
+      await readFile(join(destination, 'package.json'), 'utf8'),
+    ) as { description: string };
+
+    expect(packageJson.description).toBe('{{naoDeclarada}}');
+    await expect(
+      readFile(join(destination, 'README.md'), 'utf8'),
+    ).resolves.toContain('{{naoDeclarada}}');
+  });
+
+  it('produz o mesmo resultado de renderização independente da ordem de declaração das variáveis no manifesto', async () => {
+    const values = {
+      projectName: 'billing-api',
+      description: '{{naoDeclarada}}',
+    };
+
+    const renderedComOrdemOriginal = await renderPackageJsonWithVariableOrder(
+      ['projectName', 'description'],
+      values,
+    );
+    const renderedComOrdemInvertida = await renderPackageJsonWithVariableOrder(
+      ['description', 'projectName'],
+      values,
+    );
+
+    expect(renderedComOrdemOriginal).toBe(renderedComOrdemInvertida);
+    expect(renderedComOrdemOriginal).toContain('{{naoDeclarada}}');
+  });
+
+  it('remove por completo o destino criado pelo CLI quando a extração falha após materialize', async () => {
+    const workingDirectory = await createTemporaryDirectory();
+    const destination = join(workingDirectory, 'novo-projeto');
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: {},
+          initializeGit: false,
+          installDependencies: false,
+          validateProject: false,
+        },
+        {
+          templateSource: {
+            materialize: async (_template, target) => {
+              await writeFile(
+                join(target, 'template.json'),
+                '{"manifestoInvalido":true}',
+              );
+            },
+          },
+          commandExecutor: createCommandExecutor(),
+          prompt: createPrompt(),
+        },
+      ),
+    ).rejects.toThrow(CliError);
+
+    await expect(access(destination)).rejects.toThrow();
+  });
+
+  it('preserva o diretório de destino pré-existente, removendo apenas o conteúdo criado, quando a extração falha', async () => {
+    const destination = await createTemporaryDirectory();
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: {},
+          initializeGit: false,
+          installDependencies: false,
+          validateProject: false,
+        },
+        {
+          templateSource: {
+            materialize: async (_template, target) => {
+              await writeFile(
+                join(target, 'template.json'),
+                '{"manifestoInvalido":true}',
+              );
+            },
+          },
+          commandExecutor: createCommandExecutor(),
+          prompt: createPrompt(),
+        },
+      ),
+    ).rejects.toThrow(CliError);
+
+    await expect(access(destination)).resolves.toBeUndefined();
+    await expect(readdir(destination)).resolves.toEqual([]);
+  });
+
+  it('traduz destino que é um arquivo em CliError com mensagem em português', async () => {
+    const workingDirectory = await createTemporaryDirectory();
+    const destination = join(workingDirectory, 'arquivo-existente');
+    await writeFile(destination, 'conteúdo');
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: { projectName: 'billing-api' },
+          initializeGit: false,
+          installDependencies: false,
+          validateProject: false,
+        },
+        {
+          templateSource: createTemplateSource(),
+          commandExecutor: createCommandExecutor(),
+          prompt: createPrompt(),
+        },
+      ),
+    ).rejects.toThrow(
+      new CliError(
+        `O destino informado é um arquivo, não um diretório: ${destination}`,
+      ),
+    );
+  });
+
+  it('rejeita renderização através de um diretório intermediário que é link simbólico para fora do destino', async () => {
+    const workingDirectory = await createTemporaryDirectory();
+    const destination = join(workingDirectory, 'projeto');
+    const outside = join(workingDirectory, 'fora');
+    await mkdir(outside, { recursive: true });
+    await writeFile(
+      join(outside, 'app.json'),
+      '{"secret":"dados-fora-do-destino"}',
+    );
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: {},
+          initializeGit: false,
+          installDependencies: false,
+          validateProject: false,
+        },
+        {
+          templateSource: {
+            materialize: async (_template, target) => {
+              await writeFile(
+                join(target, 'template.json'),
+                JSON.stringify({
+                  schemaVersion: 1,
+                  id: 'api-nodejs-typescript',
+                  name: 'API Node.js + TypeScript',
+                  description: 'Template de API',
+                  variables: [],
+                  render: { include: ['cfg/app.json'] },
+                  postCreate: {
+                    packageManager: 'npm',
+                    installCommand: 'npm install',
+                    validateCommand: 'npm run check',
+                  },
+                }),
+              );
+              await symlink(join(target, '..', 'fora'), join(target, 'cfg'));
+            },
+          },
+          commandExecutor: createCommandExecutor(),
+          prompt: createPrompt(),
+        },
+      ),
+    ).rejects.toThrow(
+      'O manifesto tentou acessar um arquivo fora do diretório do projeto',
+    );
+
+    await expect(access(destination)).rejects.toThrow();
+    await expect(readFile(join(outside, 'app.json'), 'utf8')).resolves.toBe(
+      '{"secret":"dados-fora-do-destino"}',
+    );
+  });
+
+  it('repete o prompt até 3 vezes quando o valor obrigatório vem vazio e aceita o valor válido informado depois', async () => {
+    const destination = await createTemporaryDirectory();
+    let callCount = 0;
+
+    const template = await createProject(
+      registry,
+      {
+        destination,
+        templateId: 'api-nodejs-typescript',
+        values: {},
+        initializeGit: false,
+        installDependencies: false,
+        validateProject: false,
+      },
+      {
+        templateSource: createTemplateSource(),
+        commandExecutor: createCommandExecutor(),
+        prompt: {
+          ask: async (_question, defaultValue) => {
+            callCount += 1;
+
+            if (callCount < 3) {
+              return '';
+            }
+
+            return callCount === 3 ? 'billing-api' : (defaultValue ?? '');
+          },
+          selectTemplate: async () => 'api-nodejs-typescript',
+        },
+      },
+    );
+
+    expect(template.id).toBe('api-nodejs-typescript');
+    expect(callCount).toBe(4);
+    await expect(
+      readFile(join(destination, 'package.json'), 'utf8'),
+    ).resolves.toContain('billing-api');
+  });
+
+  it('aborta após 3 tentativas de prompt quando o valor obrigatório continua vazio', async () => {
+    const destination = await createTemporaryDirectory();
+    let callCount = 0;
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: {},
+          initializeGit: false,
+          installDependencies: false,
+          validateProject: false,
+        },
+        {
+          templateSource: createTemplateSource(),
+          commandExecutor: createCommandExecutor(),
+          prompt: {
+            ask: async () => {
+              callCount += 1;
+              return '';
+            },
+            selectTemplate: async () => 'api-nodejs-typescript',
+          },
+        },
+      ),
+    ).rejects.toThrow('A variável projectName é obrigatória');
+
+    expect(callCount).toBe(3);
+  });
+
+  it('falha imediatamente quando o valor de --set é inválido, sem chamar o prompt', async () => {
+    const destination = await createTemporaryDirectory();
+    const askCalls: string[] = [];
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: { projectName: 'Billing API' },
+          initializeGit: false,
+          installDependencies: false,
+          validateProject: false,
+        },
+        {
+          templateSource: createTemplateSource(),
+          commandExecutor: createCommandExecutor(),
+          prompt: {
+            ask: async (question) => {
+              askCalls.push(question);
+              return '';
+            },
+            selectTemplate: async () => 'api-nodejs-typescript',
+          },
+        },
+      ),
+    ).rejects.toThrow('O valor da variável projectName é inválido');
+
+    expect(askCalls).toEqual([]);
+  });
+
+  it('preserva o projeto já criado quando "npm run check" falha, e o erro informa que o projeto existe', async () => {
+    const destination = await createTemporaryDirectory();
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: { projectName: 'billing-api' },
+          initializeGit: false,
+          installDependencies: false,
+          validateProject: true,
+        },
+        {
+          templateSource: createTemplateSource(),
+          commandExecutor: createFailingCommandExecutor('npm', [
+            'run',
+            'check',
+          ]),
+          prompt: createPrompt(),
+        },
+      ),
+    ).rejects.toThrow(
+      `O projeto foi criado em ${destination}, mas a etapa "npm run check" falhou`,
+    );
+
+    await expect(access(destination)).resolves.toBeUndefined();
+    await expect(
+      readFile(join(destination, 'package.json'), 'utf8'),
+    ).resolves.toContain('billing-api');
+    await expect(access(join(destination, 'template.json'))).rejects.toThrow();
+  });
+
+  it('preserva o projeto já criado quando "npm install" falha, e o erro informa que o projeto existe', async () => {
+    const destination = await createTemporaryDirectory();
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: { projectName: 'billing-api' },
+          initializeGit: false,
+          installDependencies: true,
+          validateProject: false,
+        },
+        {
+          templateSource: createTemplateSource(),
+          commandExecutor: createFailingCommandExecutor('npm', ['install']),
+          prompt: createPrompt(),
+        },
+      ),
+    ).rejects.toThrow(
+      `O projeto foi criado em ${destination}, mas a etapa "npm install" falhou`,
+    );
+
+    await expect(access(destination)).resolves.toBeUndefined();
+    await expect(
+      readFile(join(destination, 'package.json'), 'utf8'),
+    ).resolves.toContain('billing-api');
+  });
+
+  it('preserva o projeto já criado quando "git init" falha, e o erro informa que o projeto existe', async () => {
+    const destination = await createTemporaryDirectory();
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: { projectName: 'billing-api' },
+          initializeGit: true,
+          installDependencies: false,
+          validateProject: false,
+        },
+        {
+          templateSource: createTemplateSource(),
+          commandExecutor: createFailingCommandExecutor('git', ['init']),
+          prompt: createPrompt(),
+        },
+      ),
+    ).rejects.toThrow(
+      `O projeto foi criado em ${destination}, mas a etapa "git init" falhou`,
+    );
+
+    await expect(access(destination)).resolves.toBeUndefined();
+    await expect(
+      readFile(join(destination, 'package.json'), 'utf8'),
+    ).resolves.toContain('billing-api');
+  });
 });
 
 function createTemplateSource(): TemplateSource {
@@ -341,6 +755,95 @@ function createTemplateSource(): TemplateSource {
 
 function createCommandExecutor(): CommandExecutor {
   return { run: async () => undefined };
+}
+
+function createFailingCommandExecutor(
+  failingCommand: string,
+  failingArguments: string[],
+): CommandExecutor {
+  return {
+    run: async (command, arguments_) => {
+      if (
+        command === failingCommand &&
+        arguments_.join(' ') === failingArguments.join(' ')
+      ) {
+        throw new CliError(
+          `Falha ao executar ${command} ${arguments_.join(' ')}: código de saída 1`,
+        );
+      }
+    },
+  };
+}
+
+const PACKAGE_JSON_VARIABLE_DEFINITIONS: Record<
+  'projectName' | 'description',
+  TemplateVariable
+> = {
+  projectName: {
+    name: 'projectName',
+    prompt: 'Nome do projeto',
+    required: true,
+    pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+  },
+  description: {
+    name: 'description',
+    prompt: 'Descrição do projeto',
+    required: false,
+    default: 'Descrição padrão',
+  },
+};
+
+async function renderPackageJsonWithVariableOrder(
+  order: ReadonlyArray<'projectName' | 'description'>,
+  values: Record<string, string>,
+): Promise<string> {
+  const destination = await createTemporaryDirectory();
+
+  await createProject(
+    registry,
+    {
+      destination,
+      templateId: 'api-nodejs-typescript',
+      values,
+      initializeGit: false,
+      installDependencies: false,
+      validateProject: false,
+    },
+    {
+      templateSource: {
+        materialize: async (_template, target) => {
+          await Promise.all([
+            writeFile(
+              join(target, 'template.json'),
+              JSON.stringify({
+                schemaVersion: 1,
+                id: 'api-nodejs-typescript',
+                name: 'API Node.js + TypeScript',
+                description: 'Template de API',
+                variables: order.map(
+                  (name) => PACKAGE_JSON_VARIABLE_DEFINITIONS[name],
+                ),
+                render: { include: ['package.json'] },
+                postCreate: {
+                  packageManager: 'npm',
+                  installCommand: 'npm install',
+                  validateCommand: 'npm run check',
+                },
+              }),
+            ),
+            writeFile(
+              join(target, 'package.json'),
+              '{"name":"{{projectName}}","description":"{{description}}"}',
+            ),
+          ]);
+        },
+      },
+      commandExecutor: createCommandExecutor(),
+      prompt: createPrompt(),
+    },
+  );
+
+  return readFile(join(destination, 'package.json'), 'utf8');
 }
 
 function createPrompt(): Prompt {

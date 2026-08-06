@@ -27,6 +27,7 @@ function facts(overrides: Partial<PullRequestFacts> = {}): PullRequestFacts {
     body: completeBody,
     baseBranch: 'development',
     headBranch: 'chore/automated-review',
+    author: 'marcelo',
     files: [
       'scripts/danger/pr-policies.ts',
       'tests/scripts/pr-policies.test.ts',
@@ -92,6 +93,76 @@ Promove a versão homologada.
       'Preencha o campo de promoção: Impacto de produção.',
       'Preencha o campo de promoção: Plano de rollback.',
     ]);
+  });
+
+  it('isenta a Release PR do Release Please das políticas de redação e fluxo', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          title: 'chore(main): release 0.3.0',
+          body: ':robot: I have created a release *beep* *boop*',
+          baseBranch: 'main',
+          headBranch: 'release-please--branches--main--components--cli',
+          author: 'github-actions[bot]',
+          files: [
+            '.release-please-manifest.json',
+            'CHANGELOG.md',
+            'package-lock.json',
+            'package.json',
+          ],
+          additions: 60,
+          deletions: 4,
+        }),
+      ),
+    ).toEqual({ failures: [], warnings: [] });
+  });
+
+  it('mantém a proibição de artefatos gerados na Release PR', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          title: 'chore(main): release 0.3.0',
+          body: null,
+          baseBranch: 'main',
+          headBranch: 'release-please--branches--main--components--cli',
+          author: 'github-actions[bot]',
+          files: ['CHANGELOG.md', 'dist/main.js'],
+        }),
+      ).failures,
+    ).toEqual(['Não versione artefatos gerados: dist/main.js.']);
+  });
+
+  it('não isenta branch de release aberta por autor humano', () => {
+    const failures = evaluatePullRequest(
+      facts({
+        title: 'chore(main): release 0.3.0',
+        body: ':robot: I have created a release *beep* *boop*',
+        baseBranch: 'main',
+        headBranch: 'release-please--branches--main--components--cli',
+        author: 'atacante',
+      }),
+    ).failures;
+
+    expect(failures).toContain(
+      'Preencha a seção Resumo com uma descrição objetiva.',
+    );
+    expect(failures).toContain(
+      'Pull requests para main devem ter origem em development.',
+    );
+  });
+
+  it('não isenta bot em branch fora do padrão do Release Please', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          title: 'chore(main): release 0.3.0',
+          body: ':robot: I have created a release *beep* *boop*',
+          baseBranch: 'main',
+          headBranch: 'chore/release-manual',
+          author: 'github-actions[bot]',
+        }),
+      ).failures,
+    ).toContain('Pull requests para main devem ter origem em development.');
   });
 
   it('reprova artefatos em dist e coverage', () => {

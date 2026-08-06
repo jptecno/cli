@@ -55,6 +55,32 @@ describe('parseTemplateRegistry', () => {
     },
   );
 
+  it('rejeita catálogo vazio com mensagem específica', () => {
+    expect(() =>
+      parseTemplateRegistry({ schemaVersion: 1, templates: [] }),
+    ).toThrow('O catálogo de templates não possui entradas');
+  });
+
+  it('rejeita entrada de catálogo que é um array', () => {
+    expect(() =>
+      parseTemplateRegistry({
+        schemaVersion: 1,
+        templates: [['api-nodejs-typescript']],
+      }),
+    ).toThrow('Uma entrada do catálogo de templates é inválida');
+  });
+
+  it('rejeita valor raiz que é um array', () => {
+    expect(() =>
+      parseTemplateRegistry([
+        {
+          schemaVersion: 1,
+          templates: [],
+        },
+      ]),
+    ).toThrow('O catálogo de templates possui formato inválido');
+  });
+
   it('rejeita identificadores de template duplicados', () => {
     const template = {
       id: 'api-nodejs-typescript',
