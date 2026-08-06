@@ -1,20 +1,18 @@
 import { CliError } from '../application/cli-error.js';
 import { parseTemplateRegistry } from '../application/parse-template-registry.js';
-
 import type { RegistryClient } from '../contracts/cli-ports.js';
 import type { TemplateRegistry } from '../contracts/template-registry.types.js';
+import { fetchWithTimeout, formatFetchError } from './fetch-with-timeout.js';
 
 export class GitHubRegistryClient implements RegistryClient {
   async load(url: string): Promise<TemplateRegistry> {
     let response: Response;
 
     try {
-      response = await fetch(url, {
-        signal: AbortSignal.timeout(requestTimeoutMilliseconds),
-      });
+      response = await fetchWithTimeout(url);
     } catch (error) {
       throw new CliError(
-        `Não foi possível acessar o catálogo de templates: ${formatError(error)}`,
+        `Não foi possível acessar o catálogo de templates: ${formatFetchError(error)}`,
       );
     }
 
@@ -32,25 +30,8 @@ export class GitHubRegistryClient implements RegistryClient {
       }
 
       throw new CliError(
-        `Não foi possível interpretar o catálogo de templates: ${formatError(error)}`,
+        `Não foi possível interpretar o catálogo de templates: ${formatFetchError(error)}`,
       );
     }
   }
-}
-
-const requestTimeoutMilliseconds = 30_000;
-
-function formatError(error: unknown): string {
-  if (isTimeoutError(error)) {
-    return 'a solicitação excedeu o tempo limite de 30 segundos';
-  }
-
-  return error instanceof Error ? error.message : 'erro desconhecido';
-}
-
-function isTimeoutError(error: unknown): boolean {
-  return (
-    error instanceof DOMException &&
-    (error.name === 'TimeoutError' || error.name === 'AbortError')
-  );
 }
