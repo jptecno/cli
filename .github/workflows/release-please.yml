@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Create or update release pull request
         id: release
-        uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4.4.0
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
@@ -83,24 +83,51 @@ jobs:
           git push --set-upstream origin "${branch}"
 
           cat > /tmp/release-sync-pr.md <<EOF
-          ## Sincronização de release
+          ## Resumo
 
-          Esta PR sincroniza a release \`${RELEASE_TAG}\` de \`main\` para \`development\`.
+          Sincroniza a release \`${RELEASE_TAG}\` de \`main\` para \`development\`, devolvendo à base de integração o bump de versão e o changelog gerados pelo Release Please durante a publicação.
 
           - Versão publicada: \`${RELEASE_VERSION}\`
           - GitHub Release: ${RELEASE_URL}
           - npm: \`@jptecno/cli@${RELEASE_VERSION}\`
 
-          ### Alterações esperadas
+          ## Alterações
 
           - \`package.json\`
           - \`package-lock.json\`
           - \`CHANGELOG.md\`
           - \`.release-please-manifest.json\`
 
+          ## Comportamento e compatibilidade
+
+          Sem alteração. A pull request carrega apenas metadados de versão e changelog; nenhum arquivo de \`src/\` é tocado.
+
+          ## Camadas afetadas
+
+          - [ ] \`src/application/\`
+          - [ ] \`src/contracts/\`
+          - [ ] \`src/adapters/\`
+          - [ ] \`src/main.ts\`
+          - [x] Configuração, CI ou documentação
+
+          ## Configuração e segurança
+
+          Sem impacto. As alterações em \`package.json\` e \`package-lock.json\` são o bump de versão aplicado pelo Release Please na revisão já publicada; nenhuma dependência é adicionada, removida ou atualizada, e nenhuma credencial é envolvida.
+
           ## Validação
 
-          A publicação foi concluída pelo workflow \`Release Please\` com \`npm publish --provenance\`.
+          - [x] \`npm run check\`
+          - [x] \`npm pack --dry-run\` quando houver impacto no pacote
+          - [x] Outros comandos ou evidências:
+
+          A revisão sincronizada é exatamente a que foi validada e publicada pelo workflow \`Release Please\`, que executa \`npm run check\`, \`npm pack --dry-run\` e \`npm publish --provenance\` antes de criar esta pull request.
+
+          ## Homologação, release e produção
+
+          - Ambiente de homologação e resultado: Não se aplica, PR para \`development\`.
+          - Impacto de produção: Nenhum. A publicação de \`${RELEASE_VERSION}\` já ocorreu; esta pull request apenas realinha \`development\`.
+          - Próxima versão esperada (\`fix\` = patch, \`feat\` = minor, ou sem release): sem release.
+          - Plano de rollback: Não se aplica, PR para \`development\`.
 
           ## Checklist
 
