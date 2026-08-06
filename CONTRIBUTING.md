@@ -29,6 +29,10 @@ A CLI mantém separação simples entre aplicação e infraestrutura:
 
 Use TypeScript estrito, Biome, Vitest, arquivos em `kebab-case` e imports de tipos com `import type`. Teste comportamento observável; não use rede, shell ou entrada interativa reais nos testes de aplicação.
 
+## Segurança de templates
+
+O manifesto não pode controlar comandos arbitrários: a CLI somente dispara os comandos pós-criação previstos pela aplicação. Contudo, quando `npm install` está habilitado, o npm pode executar lifecycle scripts existentes no `package.json` do template, incluindo `preinstall`, `install` e `postinstall`. A CLI ainda não usa `--ignore-scripts`; contribua apenas com templates confiáveis e revise os arquivos do template antes de instalar dependências.
+
 ## Fluxo de desenvolvimento
 
 As branches permanentes são:
@@ -50,6 +54,12 @@ git worktree add ../cli-feat-nome -b feat/nome development
 No worktree, desenvolva e execute `npm run check`. Abra uma pull request para `development`. Depois de revisão, CI verde e homologação, abra uma pull request de `development` para `main`.
 
 Não faça push direto em `development` ou `main`. Nunca use `--delete-branch` em pull requests cuja origem seja uma dessas branches permanentes.
+
+### Proteção externa das branches permanentes
+
+O ruleset ativo `Proteção de branches permanentes` (ID `20485383`) cobre `main` e `development`. Ele exige pull request, uma aprovação e conversas resolvidas, bloqueia exclusão e force push e não permite bypass.
+
+O ruleset exige o check obrigatório `check` da GitHub Actions. Portanto, além de executar `npm run check` localmente, aguarde a CI desse check ficar verde antes do merge.
 
 ## Pull requests
 
