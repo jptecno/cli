@@ -1,7 +1,7 @@
 import { danger, fail, warn } from 'danger';
 
-import { evaluatePullRequest } from './scripts/danger/pr-policies.js';
-import { reportFindings } from './scripts/danger/report-findings.js';
+import { evaluatePullRequest } from './scripts/danger/pr-policies';
+import { reportFindings } from './scripts/danger/report-findings';
 
 const pullRequest = danger.github.pr;
 const files = [
