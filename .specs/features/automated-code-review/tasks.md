@@ -7,7 +7,7 @@
 - [x] **T3 — workflow Semgrep/reviewdog:** publicar findings no diff, preservar falha bloqueante e degradar com segurança em forks. Depende de T2.
 - [x] **T4 — políticas Danger:** adicionar dependência, funções puras, integração Danger e testes dos outcomes; executar testes específicos e `npm run check`. Depende de T1.
 - [x] **T5 — workflow Danger:** executar políticas com comentário atualizável e bloqueio somente por `fail`. Depende de T4.
-- [ ] **T6 — PR-Agent advisory:** adicionar instruções e workflow seguro, sem execução de código do PR. Depende de T1.
+- [x] **T6 — PR-Agent advisory:** adicionar instruções e workflow seguro, sem execução de código do PR. Depende de T1.
 - [ ] **T7 — gates finais:** executar instalação limpa, testes específicos, check, Semgrep e validação dos workflows; corrigir somente regressões do lote e atualizar este status. Depende de T2–T6.
 
 ## Matriz de testes e gates
