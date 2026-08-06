@@ -228,6 +228,31 @@ describe('createProject', () => {
     ).resolves.toBe('preservar');
   });
 
+  it('rejeita uma chave informada por --set que não é declarada pelo template', async () => {
+    const destination = await createTemporaryDirectory();
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: { projectName: 'billing-api', ambiente: 'produção' },
+          initializeGit: false,
+          installDependencies: false,
+          validateProject: false,
+        },
+        {
+          templateSource: createTemplateSource(),
+          commandExecutor: createCommandExecutor(),
+          prompt: createPrompt(),
+        },
+      ),
+    ).rejects.toThrow(
+      'A variável informada não existe no template: ambiente. Use apenas variáveis declaradas pelo template.',
+    );
+  });
+
   it('rejeita um valor que não atende ao padrão definido pelo template', async () => {
     const destination = await createTemporaryDirectory();
 

@@ -16,20 +16,20 @@ jobs:
     steps:
       - name: Create or update release pull request
         id: release
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4.4.0
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
       - name: Checkout released revision
         if: ${{ steps.release.outputs.release_created == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ steps.release.outputs.sha }}
 
       - name: Set up Node.js
         if: ${{ steps.release.outputs.release_created == 'true' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -113,3 +113,5 @@ jobs:
             --head "${branch}" \
             --title "chore(release): sincroniza ${RELEASE_TAG} em development" \
             --body-file /tmp/release-sync-pr.md
+
+          gh workflow run ci.yml --ref "${branch}"
