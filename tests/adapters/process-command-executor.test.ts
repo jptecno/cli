@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ProcessCommandExecutor } from '../../src/adapters/process-command-executor.js';
@@ -79,9 +78,9 @@ describe('ProcessCommandExecutor', () => {
     //
     // Para manter a asserção real (nenhum buffer de 1 MB no caminho) sem
     // poluir o log, o comando grande roda dentro de um processo
-    // intermediário (via tsx, já que ProcessCommandExecutor é TypeScript e
-    // não há dist/ garantido neste momento). Este teste spawna o
-    // intermediário com stdio: ['ignore', 'ignore', 'inherit']; como
+    // intermediário (Node com o loader tsx, já que ProcessCommandExecutor é
+    // TypeScript e não há dist/ garantido neste momento). Este teste spawna
+    // o intermediário com stdio: ['ignore', 'ignore', 'inherit']; como
     // ProcessCommandExecutor.run usa stdio: 'inherit' internamente, o
     // processo-neto que gera os 1,5 MB herda o stdout já ignorado do
     // intermediário — nenhuma saída chega a este processo de teste.
@@ -90,9 +89,6 @@ describe('ProcessCommandExecutor', () => {
       '../../src/adapters/process-command-executor.ts',
       import.meta.url,
     ).href;
-    const tsxBinaryPath = fileURLToPath(
-      new URL('../../node_modules/.bin/tsx', import.meta.url),
-    );
     const bigOutputScript =
       "const chunk = 'x'.repeat(1024); for (let i = 0; i < 1536; i++) { process.stdout.write(chunk); }";
 
@@ -104,9 +100,11 @@ describe('ProcessCommandExecutor', () => {
     ].join('\n');
 
     const exitCode = await new Promise<number | null>((resolve, reject) => {
-      const child = spawn(tsxBinaryPath, ['-e', intermediateScript], {
-        stdio: ['ignore', 'ignore', 'inherit'],
-      });
+      const child = spawn(
+        process.execPath,
+        ['--import', 'tsx', '--eval', intermediateScript],
+        { stdio: ['ignore', 'ignore', 'inherit'] },
+      );
 
       child.on('error', reject);
       child.on('close', resolve);
