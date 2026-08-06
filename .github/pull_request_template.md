@@ -42,7 +42,7 @@
 
 ## Homologação, release e produção
 
-<!-- Obrigatório em PRs de development para main. Em PRs para development, escreva "Não se aplica". O Release Please calcula a versão a partir dos commits convencionais; não crie tags ou Release PRs manualmente. -->
+<!-- Obrigatório em PRs de development para main. Em PRs para development, escreva "Não se aplica". Consulte CONTRIBUTING.md para o runbook. O Release Please calcula a versão a partir dos commits convencionais; não crie tags ou Release PRs manualmente. -->
 
 - Ambiente de homologação e resultado:
 - Impacto de produção:
