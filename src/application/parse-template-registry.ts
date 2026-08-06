@@ -14,6 +14,7 @@ export function parseTemplateRegistry(value: unknown): TemplateRegistry {
   }
 
   const templates = value.templates.map(parseTemplateDefinition);
+  ensureTemplateIdsAreUnique(templates);
 
   if (templates.length === 0) {
     throw new CliError('O catálogo de templates não possui entradas');
@@ -34,6 +35,12 @@ function parseTemplateDefinition(value: unknown): TemplateDefinition {
   const version = readRequiredString(value, 'version');
   const ref = readRequiredString(value, 'ref');
 
+  if (!isKebabCase(id)) {
+    throw new CliError(
+      `O identificador do template deve usar kebab-case: ${id}`,
+    );
+  }
+
   if (!/^[\w.-]+\/[\w.-]+$/.test(repository)) {
     throw new CliError(
       `O repositório do template possui formato inválido: ${repository}`,
@@ -45,6 +52,25 @@ function parseTemplateDefinition(value: unknown): TemplateDefinition {
   }
 
   return { id, name, description, repository, version, ref };
+}
+
+function ensureTemplateIdsAreUnique(templates: TemplateDefinition[]): void {
+  const ids = new Set<string>();
+
+  for (const template of templates) {
+    if (ids.has(template.id)) {
+      throw new CliError(
+        'O catálogo possui identificadores de template duplicados: ' +
+          template.id,
+      );
+    }
+
+    ids.add(template.id);
+  }
+}
+
+function isKebabCase(value: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }
 
 function isImmutableVersion(value: string): boolean {
