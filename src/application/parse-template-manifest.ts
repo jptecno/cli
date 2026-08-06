@@ -38,12 +38,15 @@ export function parseTemplateManifest(value: unknown): TemplateManifest {
     );
   }
 
+  const variables = value.variables.map(parseTemplateVariable);
+  ensureVariableNamesAreUnique(variables);
+
   return {
     schemaVersion: 1,
     id: value.id,
     name: value.name,
     description: value.description,
-    variables: value.variables.map(parseTemplateVariable),
+    variables,
     render: { include: value.render.include.map(parseRelativePath) },
     postCreate: {
       packageManager: 'npm',
@@ -57,6 +60,7 @@ function parseTemplateVariable(value: unknown): TemplateVariable {
   if (
     !isRecord(value) ||
     !isNonEmptyString(value.name) ||
+    !isVariableName(value.name) ||
     !isNonEmptyString(value.prompt) ||
     typeof value.required !== 'boolean'
   ) {
@@ -65,6 +69,14 @@ function parseTemplateVariable(value: unknown): TemplateVariable {
 
   if (value.pattern !== undefined && !isNonEmptyString(value.pattern)) {
     throw new CliError(`O padrão da variável ${value.name} é inválido`);
+  }
+
+  if (value.pattern !== undefined) {
+    try {
+      new RegExp(value.pattern);
+    } catch {
+      throw new CliError(`O padrão da variável ${value.name} é inválido`);
+    }
   }
 
   if (value.default !== undefined && typeof value.default !== 'string') {
@@ -78,6 +90,24 @@ function parseTemplateVariable(value: unknown): TemplateVariable {
     pattern: value.pattern,
     default: value.default,
   };
+}
+
+function ensureVariableNamesAreUnique(variables: TemplateVariable[]): void {
+  const names = new Set<string>();
+
+  for (const variable of variables) {
+    if (names.has(variable.name)) {
+      throw new CliError(
+        `O manifesto possui variáveis duplicadas: ${variable.name}`,
+      );
+    }
+
+    names.add(variable.name);
+  }
+}
+
+function isVariableName(value: string): boolean {
+  return /^[A-Za-z][A-Za-z0-9_]*$/.test(value);
 }
 
 function parseRelativePath(value: unknown): string {
