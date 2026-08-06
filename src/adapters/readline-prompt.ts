@@ -69,6 +69,12 @@ export class ReadlinePrompt implements Prompt {
         const template = templates[selectedIndex];
 
         cleanup();
+
+        if (!template) {
+          reject(new CliError('Índice de template selecionado é inválido'));
+          return;
+        }
+
         resolve(template.id);
       };
 
