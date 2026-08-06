@@ -1,0 +1,25 @@
+[config]
+response_language = "pt-BR"
+repo_context_files = ["AGENTS.md"]
+repo_context_from_default_branch = true
+
+[pr_reviewer]
+require_tests_review = true
+require_security_review = true
+require_estimate_effort_to_review = false
+require_ticket_analysis_review = false
+persistent_comment = true
+num_max_findings = 5
+extra_instructions = """
+Revise apenas problemas concretos introduzidos pelo diff desta CLI Node.js/TypeScript.
+Priorize, nesta ordem:
+1. traversal de paths, links simbólicos e extração insegura de archives;
+2. command injection ou execução de comandos fora da allowlist git init, npm install e npm run check;
+3. renderização de JSON que permita alterar a estrutura em vez de serializar valores;
+4. validação de registry, template.json e demais dados externos não confiáveis;
+5. tags SemVer imutáveis e igualdade obrigatória entre version e ref;
+6. exposição de secrets, tokens, URLs autenticadas ou dados sensíveis;
+7. ausência de testes de regressão para paths, renderização, validação e execução de comandos;
+8. violações das fronteiras application/contracts/adapters/main descritas em AGENTS.md.
+Não comente estilo ou formatação cobertos pelo Biome. Não sugira abstrações, factories, genéricos ou camadas especulativas sem um defeito concreto no diff. Classifique heurísticas e incertezas como recomendações, nunca como falhas certas.
+"""
