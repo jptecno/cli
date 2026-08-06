@@ -1,0 +1,6 @@
+# Caminhos sensíveis de automação, publicação e dependências.
+/.github/workflows/ @marcelocmenezes
+/package.json @marcelocmenezes
+/package-lock.json @marcelocmenezes
+/release-please-config.json @marcelocmenezes
+/.release-please-manifest.json @marcelocmenezes
