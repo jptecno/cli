@@ -54,7 +54,9 @@
     "@types/node": "^26.1.2",
     "danger": "13.0.10",
     "tsx": "^4.19.2",
-    "typescript": "^5.8.3",
-    "vitest": "^4.1.10"
+
+    "vitest": "^4.1.10",
+    "typescript": "^7.0.2"
+
   }
 }
