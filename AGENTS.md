@@ -62,7 +62,8 @@ O CLI trata registry, manifests e archives como dados externos não confiáveis.
 - Restrinja arquivos renderizados ao diretório de destino e rejeite caminhos com traversal ou links simbólicos.
 - Para arquivos JSON, faça renderização estruturada e serialização válida; nunca permita que variáveis alterem a estrutura do documento.
 - Não execute comandos arbitrários fornecidos por registry, template ou valores de variáveis.
-- Os únicos comandos pós-criação permitidos no MVP são `git init`, `npm install` e `npm run check`, disparados explicitamente pela aplicação.
+- Os únicos comandos pós-criação permitidos no MVP são `git init`, `npm install` e `npm run check`, disparados explicitamente pela aplicação; o manifesto não controla comandos arbitrários.
+- Quando a aplicação executa `npm install`, o npm pode executar lifecycle scripts declarados no `package.json` do template, como `preinstall`, `install` e `postinstall`. Este comportamento não deve ser alterado para `--ignore-scripts` sem decisão específica; use apenas templates confiáveis e revise-os antes da instalação.
 - Nunca exponha tokens, URLs autenticadas ou dados sensíveis em mensagens de erro ou logs.
 
 ## Testes e Validação
@@ -107,12 +108,9 @@ Fluxo obrigatório de promoção:
 5. Abra pull request de `development` para `main` somente após a homologação em `development`.
 6. Faça merge em `main` somente com CI verde e aprovação; essa branch representa produção.
 
-Mantenha as proteções de branch no provedor Git:
+O ruleset ativo `Proteção de branches permanentes` (ID `20485383`) cobre a branch padrão (`main`) e `development`. Ele exige pull request, uma aprovação e conversas resolvidas; também bloqueia exclusão de branches e force push, sem bypass configurado.
 
-- proíba push direto em `development` e `main`;
-- exija CI e revisão para pull requests;
-- associe o ambiente de testes a `development` e o ambiente de produção a `main`;
-- mantenha segredos e configurações de cada ambiente no provedor de deploy, nunca em branches ou arquivos versionados.
+O ruleset exige o check obrigatório `check` da GitHub Actions. Assim, além da execução local de `npm run check`, a CI desse check precisa estar verde para permitir o merge. Mantenha segredos e configurações de ambiente no provedor de deploy, nunca em branches ou arquivos versionados.
 
 Para hotfixes urgentes feitos a partir de `main`, promova a correção de volta para `development` por pull request ou merge, evitando divergência entre as branches permanentes.
 
