@@ -108,12 +108,9 @@ Fluxo obrigatório de promoção:
 5. Abra pull request de `development` para `main` somente após a homologação em `development`.
 6. Faça merge em `main` somente com CI verde e aprovação; essa branch representa produção.
 
-Mantenha as proteções de branch no provedor Git:
+O ruleset ativo `Proteção de branches permanentes` (ID `20485383`) cobre a branch padrão (`main`) e `development`. Ele exige pull request, uma aprovação e conversas resolvidas; também bloqueia exclusão de branches e force push, sem bypass configurado.
 
-- proíba push direto em `development` e `main`;
-- exija CI e revisão para pull requests;
-- associe o ambiente de testes a `development` e o ambiente de produção a `main`;
-- mantenha segredos e configurações de cada ambiente no provedor de deploy, nunca em branches ou arquivos versionados.
+No estado atual, o ruleset **não possui checks obrigatórios**. A execução de `npm run check` e a verificação de CI continuam obrigatórias pelo fluxo do repositório, mas não são impostas pela proteção externa até que checks obrigatórios sejam configurados. Mantenha segredos e configurações de ambiente no provedor de deploy, nunca em branches ou arquivos versionados.
 
 Para hotfixes urgentes feitos a partir de `main`, promova a correção de volta para `development` por pull request ou merge, evitando divergência entre as branches permanentes.
 
