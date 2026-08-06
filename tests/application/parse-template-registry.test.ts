@@ -102,6 +102,52 @@ describe('parseTemplateRegistry', () => {
   });
 
   it.each([
+    'v01.2.3',
+    'v1.02.3',
+    'v1.2.03',
+    'v1.2.3-',
+    'v1.2.3-alpha..1',
+    'v1.2.3-01',
+  ])('rejeita tag que não segue SemVer 2.0 estrito: %s', (version) => {
+    expect(() =>
+      parseTemplateRegistry({
+        schemaVersion: 1,
+        templates: [
+          {
+            id: 'api',
+            name: 'API',
+            description: 'Template',
+            repository: 'jptecno/template-api',
+            version,
+            ref: version,
+          },
+        ],
+      }),
+    ).toThrow('O template deve usar uma tag SemVer imutável: api');
+  });
+
+  it.each(['v0.0.0', 'v1.2.3-rc.1', 'v1.2.3+build.5'])(
+    'aceita tag SemVer 2.0 válida: %s',
+    (version) => {
+      const registry = parseTemplateRegistry({
+        schemaVersion: 1,
+        templates: [
+          {
+            id: 'api',
+            name: 'API',
+            description: 'Template',
+            repository: 'jptecno/template-api',
+            version,
+            ref: version,
+          },
+        ],
+      });
+
+      expect(registry.templates[0]?.version).toBe(version);
+    },
+  );
+
+  it.each([
     { schemaVersion: 2, templates: [] },
     { schemaVersion: 1, templates: [] },
     {
