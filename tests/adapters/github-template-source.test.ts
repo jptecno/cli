@@ -1,9 +1,12 @@
 import {
+  link,
+  lstat,
   mkdir,
   mkdtemp,
   readdir,
   readFile,
   rm,
+  symlink,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -187,6 +190,34 @@ describe('GitHubTemplateSource', () => {
       new GitHubTemplateSource().materialize(template, destination),
     ).rejects.toThrow('Não foi possível baixar api-nodejs-typescript:');
   });
+
+  it.each(['symbolic' as const, 'hard' as const])(
+    'rejeita archive que contém link %s',
+    async (linkType) => {
+      const destination = await createTemporaryDirectory();
+      const archiveBuffer = await createFakeLinkArchiveBuffer(linkType);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(new Response(archiveBuffer, { status: 200 })),
+      );
+
+      await expect(
+        new GitHubTemplateSource().materialize(template, destination),
+      ).rejects.toThrow(
+        'Não foi possível baixar api-nodejs-typescript: o archive contém um link não permitido',
+      );
+
+      const extractedEntries = await readdir(destination);
+      const extractedDetails = await Promise.all(
+        extractedEntries.map((entry) => lstat(join(destination, entry))),
+      );
+      expect(
+        extractedDetails.every(
+          (details) => !details.isSymbolicLink() && details.nlink === 1,
+        ),
+      ).toBe(true);
+    },
+  );
 });
 
 async function createTemporaryDirectory(): Promise<string> {
@@ -211,6 +242,33 @@ async function createFakeArchiveBuffer(
 
   for (const [relativePath, content] of Object.entries(files)) {
     await writeFile(join(projectRoot, relativePath), content);
+  }
+
+  const chunks: Buffer[] = [];
+  const packStream = tar.c({ gzip: true, cwd: sourceRoot }, ['template-root']);
+  for await (const chunk of packStream) {
+    chunks.push(chunk as Buffer);
+  }
+
+  return Buffer.concat(chunks);
+}
+
+async function createFakeLinkArchiveBuffer(
+  linkType: 'symbolic' | 'hard',
+): Promise<Buffer> {
+  const sourceRoot = await mkdtemp(join(tmpdir(), 'jp-cli-fixture-'));
+  temporaryDirectories.push(sourceRoot);
+
+  const projectRoot = join(sourceRoot, 'template-root');
+  const targetPath = join(projectRoot, 'target.txt');
+  const linkPath = join(projectRoot, 'link.txt');
+  await mkdir(projectRoot, { recursive: true });
+  await writeFile(targetPath, 'conteúdo');
+
+  if (linkType === 'symbolic') {
+    await symlink('target.txt', linkPath);
+  } else {
+    await link(targetPath, linkPath);
   }
 
   const chunks: Buffer[] = [];

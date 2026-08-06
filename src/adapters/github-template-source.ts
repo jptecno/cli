@@ -51,6 +51,7 @@ export class GitHubTemplateSource implements TemplateSource {
       }
 
       await downloadArchiveToFile(response, archivePath, template.id);
+      let containsForbiddenLink = false;
 
       await tar.x({
         cwd: destination,
@@ -58,7 +59,24 @@ export class GitHubTemplateSource implements TemplateSource {
         strip: 1,
         strict: true,
         maxDecompressionRatio: maximumDecompressionRatio,
+        filter: (_path, entry) => {
+          if (
+            'type' in entry &&
+            (entry.type === 'Link' || entry.type === 'SymbolicLink')
+          ) {
+            containsForbiddenLink = true;
+            return false;
+          }
+
+          return true;
+        },
       });
+
+      if (containsForbiddenLink) {
+        throw new CliError(
+          `Não foi possível baixar ${template.id}: o archive contém um link não permitido`,
+        );
+      }
     } catch (error) {
       if (error instanceof CliError) {
         throw error;
