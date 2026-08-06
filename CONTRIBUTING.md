@@ -59,7 +59,7 @@ Não faça push direto em `development` ou `main`. Nunca use `--delete-branch` e
 
 O ruleset ativo `Proteção de branches permanentes` (ID `20485383`) cobre `main` e `development`. Ele exige pull request, uma aprovação e conversas resolvidas, bloqueia exclusão e force push e não permite bypass.
 
-Ainda não há checks obrigatórios configurados no ruleset. Portanto, `npm run check` e a CI verde permanecem exigências do fluxo de contribuição, mas não são bloqueios impostos externamente até a configuração desses checks.
+O ruleset exige o check obrigatório `check` da GitHub Actions. Portanto, além de executar `npm run check` localmente, aguarde a CI desse check ficar verde antes do merge.
 
 ## Pull requests
 

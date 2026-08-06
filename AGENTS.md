@@ -110,7 +110,7 @@ Fluxo obrigatório de promoção:
 
 O ruleset ativo `Proteção de branches permanentes` (ID `20485383`) cobre a branch padrão (`main`) e `development`. Ele exige pull request, uma aprovação e conversas resolvidas; também bloqueia exclusão de branches e force push, sem bypass configurado.
 
-No estado atual, o ruleset **não possui checks obrigatórios**. A execução de `npm run check` e a verificação de CI continuam obrigatórias pelo fluxo do repositório, mas não são impostas pela proteção externa até que checks obrigatórios sejam configurados. Mantenha segredos e configurações de ambiente no provedor de deploy, nunca em branches ou arquivos versionados.
+O ruleset exige o check obrigatório `check` da GitHub Actions. Assim, além da execução local de `npm run check`, a CI desse check precisa estar verde para permitir o merge. Mantenha segredos e configurações de ambiente no provedor de deploy, nunca em branches ou arquivos versionados.
 
 Para hotfixes urgentes feitos a partir de `main`, promova a correção de volta para `development` por pull request ou merge, evitando divergência entre as branches permanentes.
 
