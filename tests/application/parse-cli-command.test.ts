@@ -46,6 +46,23 @@ describe('parseCliCommand', () => {
     });
   });
 
+  it('armazena --set sem expor o mapa a propriedades herdadas', () => {
+    const command = parseCliCommand([
+      'init',
+      'billing-api',
+      '--set',
+      '__proto__=valor',
+    ]);
+
+    expect(command.kind).toBe('init');
+    if (command.kind !== 'init') {
+      return;
+    }
+
+    expect(Object.getPrototypeOf(command.values)).toBeNull();
+    expect(Object.entries(command.values)).toEqual([['__proto__', 'valor']]);
+  });
+
   it('lê template list com registry alternativo https', () => {
     expect(
       parseCliCommand([
