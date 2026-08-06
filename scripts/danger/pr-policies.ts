@@ -21,7 +21,8 @@ const behavioralPath = /^src\//;
 const testPath = /^tests\/.*\.test\.ts$/;
 const sensitivePath =
   /^(\.github\/workflows\/|package(?:-lock)?\.json$|scripts\/|\.npmrc$)/;
-const releaseBranch = /^release-please--/;
+const dependabotBranch = /^dependabot\//;
+const releasePleaseBranch = /^release-please--/;
 const botAuthor = /\[bot\]$/;
 
 function section(body: string, heading: string): string {
@@ -52,17 +53,36 @@ function hasPromotionField(body: string, label: string): boolean {
   return meaningfulText(line?.slice(line.indexOf(':') + 1) ?? '').length > 0;
 }
 
+function isBot(author: string): boolean {
+  return botAuthor.test(author.trim());
+}
+
 /**
- * A Release PR do Release Please é aberta por um bot, a partir de uma branch
- * própria para `main`, com título e corpo gerados dos commits convencionais já
- * revisados nas pull requests de origem. As políticas de redação e de fluxo de
- * branch não se aplicam: não há autor humano para preencher o template nem
- * como derivar a branch de `development`.
+ * O corpo das pull requests do Dependabot é o changelog e as notas de release
+ * da dependência atualizada, gerados por um serviço de terceiro que não aceita
+ * template. Só as regras de redação são dispensadas; título convencional e
+ * proibição de artefatos gerados continuam valendo.
+ *
+ * Automação cujo texto é nosso não entra aqui: a pull request de sincronização
+ * de release é escrita pelo workflow `release-please.yml` e o cabeçalho da
+ * Release PR vem de `release-please-config.json`. Nesses dois casos o padrão de
+ * pull request é seguido, não dispensado.
+ */
+function waivesBodyTemplate(facts: PullRequestFacts): boolean {
+  return dependabotBranch.test(facts.headBranch) && isBot(facts.author);
+}
+
+/**
+ * A Release PR do Release Please é a única origem legítima para `main` além de
+ * `development`: ela nasce da branch própria do bot e carrega o bump de versão
+ * e o changelog. O corpo dela segue o padrão via `pull-request-header`.
+ *
+ * As duas condições, prefixo de branch e autor bot, são exigidas juntas para
+ * que uma branch com nome parecido aberta por uma pessoa não escape da regra de
+ * fluxo entre branches permanentes.
  */
 function isReleasePullRequest(facts: PullRequestFacts): boolean {
-  return (
-    releaseBranch.test(facts.headBranch) && botAuthor.test(facts.author.trim())
-  );
+  return releasePleaseBranch.test(facts.headBranch) && isBot(facts.author);
 }
 
 function findVersionedArtifacts(files: string[]): string[] {
@@ -73,28 +93,24 @@ export function evaluatePullRequest(facts: PullRequestFacts): PolicyResults {
   const failures: string[] = [];
   const warnings: string[] = [];
   const body = facts.body ?? '';
-
-  if (isReleasePullRequest(facts)) {
-    const releaseArtifacts = findVersionedArtifacts(facts.files);
-
-    return {
-      failures:
-        releaseArtifacts.length > 0
-          ? [`Não versione artefatos gerados: ${releaseArtifacts.join(', ')}.`]
-          : [],
-      warnings: [],
-    };
-  }
+  const bodyTemplateWaived = waivesBodyTemplate(facts);
 
   if (!conventionalTitle.test(facts.title.trim())) {
     failures.push('Use um título no formato Conventional Commits.');
   }
 
-  if (meaningfulText(section(body, 'Resumo')).length === 0) {
+  if (
+    !bodyTemplateWaived &&
+    meaningfulText(section(body, 'Resumo')).length === 0
+  ) {
     failures.push('Preencha a seção Resumo com uma descrição objetiva.');
   }
 
-  if (facts.baseBranch === 'main' && facts.headBranch !== 'development') {
+  if (
+    facts.baseBranch === 'main' &&
+    facts.headBranch !== 'development' &&
+    !isReleasePullRequest(facts)
+  ) {
     failures.push('Pull requests para main devem ter origem em development.');
   }
 
@@ -117,7 +133,10 @@ export function evaluatePullRequest(facts: PullRequestFacts): PolicyResults {
     failures.push(`Não versione artefatos gerados: ${artifacts.join(', ')}.`);
   }
 
-  if (facts.files.length > 30 || facts.additions + facts.deletions > 500) {
+  if (
+    !bodyTemplateWaived &&
+    (facts.files.length > 30 || facts.additions + facts.deletions > 500)
+  ) {
     warnings.push(
       'PR grande: considere dividir a mudança para facilitar a revisão.',
     );
@@ -133,6 +152,7 @@ export function evaluatePullRequest(facts: PullRequestFacts): PolicyResults {
   }
 
   if (
+    !bodyTemplateWaived &&
     facts.files.some((file) => sensitivePath.test(file)) &&
     meaningfulText(section(body, 'Configuração e segurança')).length === 0
   ) {
