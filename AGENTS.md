@@ -11,6 +11,10 @@
 
 Mantenha as versões e os scripts definidos em `package.json` como fonte de verdade. Arquivos gerados devem permanecer em `dist/` e a cobertura em `coverage/`; nenhum deles deve ser versionado. O pacote publicado deve conter somente os arquivos declarados em `package.json`.
 
+## Documentação para Agentes
+
+Este arquivo é a fonte canônica e autocontida das regras operacionais para Claude Code, OpenCode, Codex, Cursor, Gemini CLI e demais agentes. Não dependa de links ou de outros documentos para encontrar instruções obrigatórias. `CONTRIBUTING.md` explica o processo para contribuidores humanos e complementa este arquivo, mas não substitui nenhuma regra abaixo.
+
 ## Arquitetura e Estrutura
 
 A CLI mantém separação simples entre fluxo de aplicação e detalhes de infraestrutura:
