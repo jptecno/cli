@@ -151,7 +151,7 @@ Promove a versão homologada.
     );
   });
 
-  it('não isenta bot em branch fora do padrão do Release Please', () => {
+  it('não isenta bot em branch fora dos padrões de automação', () => {
     expect(
       evaluatePullRequest(
         facts({
@@ -163,6 +163,50 @@ Promove a versão homologada.
         }),
       ).failures,
     ).toContain('Pull requests para main devem ter origem em development.');
+  });
+
+  it('isenta as pull requests do Dependabot das políticas de redação', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          title: 'chore(deps-dev): bump typescript from 5.9.3 to 7.0.2',
+          body: 'Bumps [typescript](https://github.com/microsoft/TypeScript) from 5.9.3 to 7.0.2.',
+          baseBranch: 'development',
+          headBranch: 'dependabot/npm_and_yarn/development/typescript-7.0.2',
+          author: 'dependabot[bot]',
+          files: ['package.json', 'package-lock.json'],
+        }),
+      ),
+    ).toEqual({ failures: [], warnings: [] });
+  });
+
+  it('isenta atualização de action do Dependabot sem avisar sobre workflow', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          title: 'chore(deps): bump actions/checkout from 4.2.2 to 7.0.1',
+          body: 'Bumps actions/checkout from 4.2.2 to 7.0.1.',
+          baseBranch: 'development',
+          headBranch:
+            'dependabot/github_actions/development/actions/checkout-7.0.1',
+          author: 'dependabot[bot]',
+          files: ['.github/workflows/ci.yml'],
+        }),
+      ),
+    ).toEqual({ failures: [], warnings: [] });
+  });
+
+  it('não isenta branch do Dependabot aberta por autor humano', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          title: 'chore(deps-dev): bump typescript from 5.9.3 to 7.0.2',
+          body: 'Bumps typescript from 5.9.3 to 7.0.2.',
+          headBranch: 'dependabot/npm_and_yarn/development/typescript-7.0.2',
+          author: 'atacante',
+        }),
+      ).failures,
+    ).toContain('Preencha a seção Resumo com uma descrição objetiva.');
   });
 
   it('reprova artefatos em dist e coverage', () => {
