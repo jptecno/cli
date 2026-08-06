@@ -128,7 +128,7 @@ function parseInitCommand(arguments_: string[]): InitCommandOptions {
     destination,
     registryUrl: defaultRegistryUrl,
     isCustomRegistry: false,
-    values: {},
+    values: Object.create(null) as Record<string, string>,
     installDependencies: true,
     initializeGit: true,
     validateProject: true,

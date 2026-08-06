@@ -262,7 +262,9 @@ async function resolveVariables(
   const values: Record<string, string> = {};
 
   for (const variable of manifest.variables) {
-    const providedValue = providedValues[variable.name];
+    const providedValue = Object.hasOwn(providedValues, variable.name)
+      ? providedValues[variable.name]
+      : undefined;
 
     values[variable.name] =
       providedValue === undefined
