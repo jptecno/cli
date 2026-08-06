@@ -51,4 +51,6 @@ Por padrão, o CLI lê o catálogo público em `jptecno/template-registry`, baix
 
 ## Segurança
 
-O CLI valida o catálogo e o manifesto do template antes de usá-los. Os únicos comandos pós-criação aceitos neste MVP são `npm install` e `npm run check`, controlados pelo próprio CLI; templates não podem fornecer scripts arbitrários para execução.
+O CLI valida o catálogo e o manifesto do template antes de usá-los. Os únicos comandos pós-criação aceitos neste MVP são `npm install` e `npm run check`, controlados pelo próprio CLI; templates não podem fornecer comandos arbitrários para execução pelo manifesto.
+
+Atenção: quando habilitado, `npm install` executa os lifecycle scripts definidos no `package.json` do template (por exemplo, `preinstall`, `install` e `postinstall`). Este comportamento é inerente ao npm e, por enquanto, o CLI não usa `--ignore-scripts`. Use somente templates confiáveis e revise seus arquivos antes de instalar dependências.

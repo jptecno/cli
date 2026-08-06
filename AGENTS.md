@@ -62,7 +62,8 @@ O CLI trata registry, manifests e archives como dados externos não confiáveis.
 - Restrinja arquivos renderizados ao diretório de destino e rejeite caminhos com traversal ou links simbólicos.
 - Para arquivos JSON, faça renderização estruturada e serialização válida; nunca permita que variáveis alterem a estrutura do documento.
 - Não execute comandos arbitrários fornecidos por registry, template ou valores de variáveis.
-- Os únicos comandos pós-criação permitidos no MVP são `git init`, `npm install` e `npm run check`, disparados explicitamente pela aplicação.
+- Os únicos comandos pós-criação permitidos no MVP são `git init`, `npm install` e `npm run check`, disparados explicitamente pela aplicação; o manifesto não controla comandos arbitrários.
+- Quando a aplicação executa `npm install`, o npm pode executar lifecycle scripts declarados no `package.json` do template, como `preinstall`, `install` e `postinstall`. Este comportamento não deve ser alterado para `--ignore-scripts` sem decisão específica; use apenas templates confiáveis e revise-os antes da instalação.
 - Nunca exponha tokens, URLs autenticadas ou dados sensíveis em mensagens de erro ou logs.
 
 ## Testes e Validação
