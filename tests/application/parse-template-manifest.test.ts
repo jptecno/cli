@@ -189,6 +189,29 @@ describe('parseTemplateManifest', () => {
     expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
   });
 
+  it.each(['__proto__', 'project-name', '1project', 'project.name'])(
+    'rejeita nome de variável inválido: %s',
+    (name) => {
+      const manifest = buildManifest({
+        variables: [{ name, prompt: 'Prompt', required: true }],
+      });
+      expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
+    },
+  );
+
+  it('rejeita nomes de variável duplicados', () => {
+    const variable = {
+      name: 'projectName',
+      prompt: 'Prompt',
+      required: true,
+    };
+    const manifest = buildManifest({ variables: [variable, variable] });
+
+    expect(() => parseTemplateManifest(manifest)).toThrow(
+      'O manifesto possui variáveis duplicadas: projectName',
+    );
+  });
+
   it.each(['true', 1, undefined, null])(
     'rejeita variável com required não-booleano: %j',
     (required) => {
@@ -215,6 +238,23 @@ describe('parseTemplateManifest', () => {
       expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
     },
   );
+
+  it('rejeita pattern que não pode ser compilado como expressão regular', () => {
+    const manifest = buildManifest({
+      variables: [
+        {
+          name: 'projectName',
+          prompt: 'Prompt',
+          required: false,
+          pattern: '[',
+        },
+      ],
+    });
+
+    expect(() => parseTemplateManifest(manifest)).toThrow(
+      'O padrão da variável projectName é inválido',
+    );
+  });
 
   it.each([42, true, {}, []])(
     'rejeita default presente mas de tipo errado: %j',

@@ -136,6 +136,67 @@ describe('createProject', () => {
     expect(packageJson.scripts).toBeUndefined();
   });
 
+  it('não trata propriedades herdadas como valores fornecidos', async () => {
+    const destination = await createTemporaryDirectory();
+    const questions: string[] = [];
+
+    await createProject(
+      registry,
+      {
+        destination,
+        templateId: 'api-nodejs-typescript',
+        values: {},
+        initializeGit: false,
+        installDependencies: false,
+        validateProject: false,
+      },
+      {
+        templateSource: {
+          materialize: async (_template, target) => {
+            await Promise.all([
+              writeFile(
+                join(target, 'template.json'),
+                JSON.stringify({
+                  schemaVersion: 1,
+                  id: 'api-nodejs-typescript',
+                  name: 'API Node.js + TypeScript',
+                  description: 'Template de API',
+                  variables: [
+                    {
+                      name: 'constructor',
+                      prompt: 'Valor do construtor',
+                      required: true,
+                    },
+                  ],
+                  render: { include: ['arquivo.txt'] },
+                  postCreate: {
+                    packageManager: 'npm',
+                    installCommand: 'npm install',
+                    validateCommand: 'npm run check',
+                  },
+                }),
+              ),
+              writeFile(join(target, 'arquivo.txt'), '{{constructor}}'),
+            ]);
+          },
+        },
+        commandExecutor: createCommandExecutor(),
+        prompt: {
+          ask: async (question) => {
+            questions.push(question);
+            return 'valor-seguro';
+          },
+          selectTemplate: async () => 'api-nodejs-typescript',
+        },
+      },
+    );
+
+    expect(questions).toEqual(['Valor do construtor']);
+    await expect(
+      readFile(join(destination, 'arquivo.txt'), 'utf8'),
+    ).resolves.toBe('valor-seguro');
+  });
+
   it('rejeita arquivos declarados como links simbólicos', async () => {
     const destination = await createTemporaryDirectory();
 

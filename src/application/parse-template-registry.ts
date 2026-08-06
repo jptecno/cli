@@ -74,8 +74,11 @@ function isKebabCase(value: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }
 
+const immutableVersionPattern =
+  /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+
 function isImmutableVersion(value: string): boolean {
-  return /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(value);
+  return immutableVersionPattern.test(value);
 }
 
 function readRequiredString(
