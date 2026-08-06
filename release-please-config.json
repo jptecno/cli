@@ -2,6 +2,7 @@
   "release-type": "node",
   "include-component-in-tag": false,
   "bump-minor-pre-major": true,
+  "pull-request-header": "## Resumo\n\nRelease preparada pelo Release Please a partir dos commits convencionais já revisados nas pull requests integradas em `main`. O merge desta pull request cria a tag, publica o pacote no npm com proveniência e abre a pull request de sincronização para `development`.\n\n## Configuração e segurança\n\nAs alterações são o bump de versão em `package.json` e `package-lock.json`, o changelog e o manifesto do Release Please. Nenhuma dependência é adicionada, removida ou atualizada. A publicação usa `npm publish --provenance` com credencial do workflow.",
   "packages": {
     ".": {}
   }
