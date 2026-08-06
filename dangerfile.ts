@@ -14,6 +14,7 @@ const results = evaluatePullRequest({
   body: pullRequest.body,
   baseBranch: pullRequest.base.ref,
   headBranch: pullRequest.head.ref,
+  author: pullRequest.user.login,
   files: [...new Set(files)],
   additions: pullRequest.additions,
   deletions: pullRequest.deletions,
