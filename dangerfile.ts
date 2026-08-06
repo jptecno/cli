@@ -1,6 +1,7 @@
 import { danger, fail, warn } from 'danger';
 
 import { evaluatePullRequest } from './scripts/danger/pr-policies.js';
+import { reportFindings } from './scripts/danger/report-findings.js';
 
 const pullRequest = danger.github.pr;
 const files = [
@@ -18,10 +19,4 @@ const results = evaluatePullRequest({
   deletions: pullRequest.deletions,
 });
 
-for (const message of results.failures) {
-  fail(message);
-}
-
-for (const message of results.warnings) {
-  warn(message);
-}
+reportFindings(results, { fail, warn });
