@@ -52,7 +52,3 @@ Por padrão, o CLI lê o catálogo público em `jptecno/template-registry`, baix
 ## Segurança
 
 O CLI valida o catálogo e o manifesto do template antes de usá-los. Os únicos comandos pós-criação aceitos neste MVP são `npm install` e `npm run check`, controlados pelo próprio CLI; templates não podem fornecer scripts arbitrários para execução.
-
-## Contribuição e releases
-
-O guia de desenvolvimento, pull requests e releases está em [CONTRIBUTING.md](https://github.com/jptecno/cli/blob/main/CONTRIBUTING.md). Releases são gerenciadas automaticamente pelo Release Please.
