@@ -62,6 +62,8 @@ export async function createProject(
     );
   }
 
+  ensureProvidedValuesAreDeclared(manifest, options.values);
+
   const values = await resolveVariables(
     manifest,
     options.values,
@@ -133,6 +135,25 @@ async function readTemplateManifest(
     throw new CliError(
       `Não foi possível ler o manifesto do template: ${formatError(error)}`,
     );
+  }
+}
+
+function ensureProvidedValuesAreDeclared(
+  manifest: TemplateManifest,
+  providedValues: Record<string, string>,
+): void {
+  const declaredNames = new Set(
+    manifest.variables.map((variable) => variable.name),
+  );
+
+  for (const name of Object.keys(providedValues)) {
+    if (!declaredNames.has(name)) {
+      throw new CliError(
+        'A variável informada não existe no template: ' +
+          name +
+          '. Use apenas variáveis declaradas pelo template.',
+      );
+    }
   }
 }
 
