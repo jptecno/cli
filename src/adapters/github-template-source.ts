@@ -19,6 +19,7 @@ export class GitHubTemplateSource implements TemplateSource {
     try {
       const response = await fetch(
         createGitHubArchiveUrl(template.repository, template.ref),
+        { signal: AbortSignal.timeout(requestTimeoutMilliseconds) },
       );
 
       if (!response.ok) {
@@ -56,6 +57,19 @@ export function createGitHubArchiveUrl(
   return `https://codeload.github.com/${repository}/tar.gz/${encodeURIComponent(ref)}`;
 }
 
+const requestTimeoutMilliseconds = 30_000;
+
 function formatError(error: unknown): string {
+  if (isTimeoutError(error)) {
+    return 'a solicitação excedeu o tempo limite de 30 segundos';
+  }
+
   return error instanceof Error ? error.message : 'erro desconhecido';
+}
+
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    (error.name === 'TimeoutError' || error.name === 'AbortError')
+  );
 }

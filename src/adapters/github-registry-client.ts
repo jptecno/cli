@@ -9,7 +9,9 @@ export class GitHubRegistryClient implements RegistryClient {
     let response: Response;
 
     try {
-      response = await fetch(url);
+      response = await fetch(url, {
+        signal: AbortSignal.timeout(requestTimeoutMilliseconds),
+      });
     } catch (error) {
       throw new CliError(
         `Não foi possível acessar o catálogo de templates: ${formatError(error)}`,
@@ -36,6 +38,19 @@ export class GitHubRegistryClient implements RegistryClient {
   }
 }
 
+const requestTimeoutMilliseconds = 30_000;
+
 function formatError(error: unknown): string {
+  if (isTimeoutError(error)) {
+    return 'a solicitação excedeu o tempo limite de 30 segundos';
+  }
+
   return error instanceof Error ? error.message : 'erro desconhecido';
+}
+
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    (error.name === 'TimeoutError' || error.name === 'AbortError')
+  );
 }

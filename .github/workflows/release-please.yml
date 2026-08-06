@@ -113,3 +113,5 @@ jobs:
             --head "${branch}" \
             --title "chore(release): sincroniza ${RELEASE_TAG} em development" \
             --body-file /tmp/release-sync-pr.md
+
+          gh workflow run ci.yml --ref "${branch}"
