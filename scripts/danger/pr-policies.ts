@@ -3,6 +3,7 @@ export interface PullRequestFacts {
   body: string | null;
   baseBranch: string;
   headBranch: string;
+  author: string;
   files: string[];
   additions: number;
   deletions: number;
@@ -20,6 +21,8 @@ const behavioralPath = /^src\//;
 const testPath = /^tests\/.*\.test\.ts$/;
 const sensitivePath =
   /^(\.github\/workflows\/|package(?:-lock)?\.json$|scripts\/|\.npmrc$)/;
+const releaseBranch = /^release-please--/;
+const botAuthor = /\[bot\]$/;
 
 function section(body: string, heading: string): string {
   const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -49,10 +52,39 @@ function hasPromotionField(body: string, label: string): boolean {
   return meaningfulText(line?.slice(line.indexOf(':') + 1) ?? '').length > 0;
 }
 
+/**
+ * A Release PR do Release Please é aberta por um bot, a partir de uma branch
+ * própria para `main`, com título e corpo gerados dos commits convencionais já
+ * revisados nas pull requests de origem. As políticas de redação e de fluxo de
+ * branch não se aplicam: não há autor humano para preencher o template nem
+ * como derivar a branch de `development`.
+ */
+function isReleasePullRequest(facts: PullRequestFacts): boolean {
+  return (
+    releaseBranch.test(facts.headBranch) && botAuthor.test(facts.author.trim())
+  );
+}
+
+function findVersionedArtifacts(files: string[]): string[] {
+  return files.filter((file) => artifactPath.test(file));
+}
+
 export function evaluatePullRequest(facts: PullRequestFacts): PolicyResults {
   const failures: string[] = [];
   const warnings: string[] = [];
   const body = facts.body ?? '';
+
+  if (isReleasePullRequest(facts)) {
+    const releaseArtifacts = findVersionedArtifacts(facts.files);
+
+    return {
+      failures:
+        releaseArtifacts.length > 0
+          ? [`Não versione artefatos gerados: ${releaseArtifacts.join(', ')}.`]
+          : [],
+      warnings: [],
+    };
+  }
 
   if (!conventionalTitle.test(facts.title.trim())) {
     failures.push('Use um título no formato Conventional Commits.');
@@ -80,7 +112,7 @@ export function evaluatePullRequest(facts: PullRequestFacts): PolicyResults {
     }
   }
 
-  const artifacts = facts.files.filter((file) => artifactPath.test(file));
+  const artifacts = findVersionedArtifacts(facts.files);
   if (artifacts.length > 0) {
     failures.push(`Não versione artefatos gerados: ${artifacts.join(', ')}.`);
   }
