@@ -21,7 +21,7 @@ const behavioralPath = /^src\//;
 const testPath = /^tests\/.*\.test\.ts$/;
 const sensitivePath =
   /^(\.github\/workflows\/|package(?:-lock)?\.json$|scripts\/|\.npmrc$)/;
-const releaseBranch = /^release-please--/;
+const automatedBranch = /^(release-please--|dependabot\/)/;
 const botAuthor = /\[bot\]$/;
 
 function section(body: string, heading: string): string {
@@ -53,15 +53,20 @@ function hasPromotionField(body: string, label: string): boolean {
 }
 
 /**
- * A Release PR do Release Please é aberta por um bot, a partir de uma branch
- * própria para `main`, com título e corpo gerados dos commits convencionais já
- * revisados nas pull requests de origem. As políticas de redação e de fluxo de
- * branch não se aplicam: não há autor humano para preencher o template nem
- * como derivar a branch de `development`.
+ * Pull requests abertas por automação usam branch e corpo próprios: a Release
+ * PR do Release Please descreve os commits convencionais já revisados nas pull
+ * requests de origem, e as do Dependabot trazem changelog e notas de release da
+ * dependência atualizada. As políticas de redação e de fluxo de branch não se
+ * aplicam: não há autor humano para preencher o template do repositório.
+ *
+ * A isenção exige branch conhecida e autor bot ao mesmo tempo, para que uma
+ * branch com nome parecido aberta por uma pessoa continue submetida às
+ * políticas.
  */
-function isReleasePullRequest(facts: PullRequestFacts): boolean {
+function isAutomatedPullRequest(facts: PullRequestFacts): boolean {
   return (
-    releaseBranch.test(facts.headBranch) && botAuthor.test(facts.author.trim())
+    automatedBranch.test(facts.headBranch) &&
+    botAuthor.test(facts.author.trim())
   );
 }
 
@@ -74,13 +79,15 @@ export function evaluatePullRequest(facts: PullRequestFacts): PolicyResults {
   const warnings: string[] = [];
   const body = facts.body ?? '';
 
-  if (isReleasePullRequest(facts)) {
-    const releaseArtifacts = findVersionedArtifacts(facts.files);
+  if (isAutomatedPullRequest(facts)) {
+    const automatedArtifacts = findVersionedArtifacts(facts.files);
 
     return {
       failures:
-        releaseArtifacts.length > 0
-          ? [`Não versione artefatos gerados: ${releaseArtifacts.join(', ')}.`]
+        automatedArtifacts.length > 0
+          ? [
+              `Não versione artefatos gerados: ${automatedArtifacts.join(', ')}.`,
+            ]
           : [],
       warnings: [],
     };
