@@ -3,10 +3,11 @@ import {
   mkdir,
   readdir,
   readFile,
+  realpath,
   rm,
   writeFile,
 } from 'node:fs/promises';
-import { extname, resolve, sep } from 'node:path';
+import { basename, dirname, extname, resolve, sep } from 'node:path';
 import type {
   CommandExecutor,
   Prompt,
@@ -51,29 +52,47 @@ export async function createProject(
     throw new CliError(`Template não encontrado: ${options.templateId}`);
   }
 
-  await ensureDestinationIsEmpty(options.destination);
-  await dependencies.templateSource.materialize(template, options.destination);
+  const destinationWasCreated = await ensureDestinationIsEmpty(
+    options.destination,
+  );
 
-  const manifest = await readTemplateManifest(options.destination);
-
-  if (manifest.id !== template.id) {
-    throw new CliError(
-      `O manifesto baixado não corresponde ao template solicitado: ${template.id}`,
+  try {
+    await dependencies.templateSource.materialize(
+      template,
+      options.destination,
     );
+
+    const manifest = await readTemplateManifest(options.destination);
+
+    if (manifest.id !== template.id) {
+      throw new CliError(
+        `O manifesto baixado não corresponde ao template solicitado: ${template.id}`,
+      );
+    }
+
+    ensureProvidedValuesAreDeclared(manifest, options.values);
+
+    const values = await resolveVariables(
+      manifest,
+      options.values,
+      dependencies.prompt,
+    );
+    await renderTemplateFiles(options.destination, manifest, values);
+    await removeTemplateMetadata(options.destination);
+  } catch (error) {
+    await rollbackDestination(options.destination, destinationWasCreated);
+    throw error;
   }
 
-  ensureProvidedValuesAreDeclared(manifest, options.values);
-
-  const values = await resolveVariables(
-    manifest,
-    options.values,
-    dependencies.prompt,
-  );
-  await renderTemplateFiles(options.destination, manifest, values);
-  await removeTemplateMetadata(options.destination);
-
+  // A partir daqui o projeto já está íntegro em `options.destination`: os
+  // arquivos foram renderizados, validados e o metadata do template
+  // removido. `git init`, `npm install` e `npm run check` são conveniências
+  // pós-criação — sua falha (lint quebrado, dependência com breaking change,
+  // rede instável) não justifica apagar um projeto completo e válido, então
+  // nenhuma etapa a partir daqui aciona rollback.
   if (options.initializeGit) {
-    await dependencies.commandExecutor.run(
+    await runPostCreationCommand(
+      dependencies.commandExecutor,
       'git',
       ['init'],
       options.destination,
@@ -81,7 +100,8 @@ export async function createProject(
   }
 
   if (options.installDependencies) {
-    await dependencies.commandExecutor.run(
+    await runPostCreationCommand(
+      dependencies.commandExecutor,
       'npm',
       ['install'],
       options.destination,
@@ -89,7 +109,8 @@ export async function createProject(
   }
 
   if (options.validateProject) {
-    await dependencies.commandExecutor.run(
+    await runPostCreationCommand(
+      dependencies.commandExecutor,
       'npm',
       ['run', 'check'],
       options.destination,
@@ -99,7 +120,41 @@ export async function createProject(
   return template;
 }
 
-async function ensureDestinationIsEmpty(destination: string): Promise<void> {
+/**
+ * Executa um comando pós-criação e, se ele falhar, lança um novo `CliError`
+ * deixando claro que o projeto já foi criado em `destination` e qual etapa
+ * falhou, com a mensagem original preservada no texto e uma sugestão de
+ * como executar o comando manualmente. Isso evita que uma falha esperada
+ * (lint quebrado no template, rede instável durante `npm install`) pareça
+ * "não deu certo, tente de novo" quando na verdade o projeto está lá.
+ */
+async function runPostCreationCommand(
+  commandExecutor: CommandExecutor,
+  command: string,
+  arguments_: string[],
+  destination: string,
+): Promise<void> {
+  const commandLabel = [command, ...arguments_].join(' ');
+
+  try {
+    await commandExecutor.run(command, arguments_, destination);
+  } catch (error) {
+    throw new CliError(
+      `O projeto foi criado em ${destination}, mas a etapa "${commandLabel}" falhou: ${formatError(error)}. ` +
+        `Você pode executar "${commandLabel}" manualmente dentro de ${destination}.`,
+    );
+  }
+}
+
+/**
+ * Garante que o diretório de destino existe e está vazio.
+ *
+ * Retorna `true` quando o diretório foi criado por esta chamada (e portanto
+ * pode ser removido por completo em caso de falha posterior) e `false`
+ * quando o diretório já existia previamente vazio (nesse caso, uma falha
+ * posterior deve limpar apenas o conteúdo criado, preservando o diretório).
+ */
+async function ensureDestinationIsEmpty(destination: string): Promise<boolean> {
   try {
     const entries = await readdir(destination);
 
@@ -108,20 +163,62 @@ async function ensureDestinationIsEmpty(destination: string): Promise<void> {
         `O diretório de destino não está vazio: ${destination}`,
       );
     }
+
+    return false;
   } catch (error) {
     if (isNotFoundError(error)) {
       await mkdir(destination, { recursive: true });
-      return;
+      return true;
+    }
+
+    if (error instanceof CliError) {
+      throw error;
+    }
+
+    if (isNotDirectoryError(error)) {
+      throw new CliError(
+        `O destino informado é um arquivo, não um diretório: ${destination}`,
+      );
     }
 
     throw error;
   }
 }
 
+/**
+ * Desfaz a criação parcial do projeto após uma falha.
+ *
+ * Se o diretório de destino foi criado por esta execução, ele é removido
+ * por completo. Se já existia (e estava vazio), apenas o conteúdo criado é
+ * removido, preservando o diretório em si — a solução mais simples que
+ * evita remover um diretório que não pertence ao CLI. Falhas durante a
+ * limpeza são silenciadas para que o erro original seja o propagado.
+ */
+async function rollbackDestination(
+  destination: string,
+  destinationWasCreated: boolean,
+): Promise<void> {
+  try {
+    if (destinationWasCreated) {
+      await rm(destination, { recursive: true, force: true });
+      return;
+    }
+
+    const entries = await readdir(destination);
+    await Promise.all(
+      entries.map((entry) =>
+        rm(resolve(destination, entry), { recursive: true, force: true }),
+      ),
+    );
+  } catch {
+    // A falha de limpeza não deve mascarar o erro original.
+  }
+}
+
 async function readTemplateManifest(
   destination: string,
 ): Promise<TemplateManifest> {
-  const manifestPath = resolveTemplatePath(destination, 'template.json');
+  const manifestPath = await resolveTemplatePath(destination, 'template.json');
 
   try {
     await ensureRegularFile(manifestPath);
@@ -166,14 +263,64 @@ async function resolveVariables(
 
   for (const variable of manifest.variables) {
     const providedValue = providedValues[variable.name];
-    const value =
-      providedValue ?? (await prompt.ask(variable.prompt, variable.default));
 
-    validateVariable(variable, value);
-    values[variable.name] = value;
+    values[variable.name] =
+      providedValue === undefined
+        ? await resolveVariableFromPrompt(variable, prompt)
+        : resolveVariableFromProvidedValue(variable, providedValue);
   }
 
   return values;
+}
+
+/**
+ * Valores vindos de `--set` falham imediatamente quando inválidos: o
+ * usuário forneceu o valor de forma explícita e não há prompt interativo
+ * para corrigi-lo.
+ */
+function resolveVariableFromProvidedValue(
+  variable: TemplateVariable,
+  value: string,
+): string {
+  validateVariable(variable, value);
+  return value;
+}
+
+const MAX_PROMPT_ATTEMPTS = 3;
+
+/**
+ * Valores vindos de prompt interativo são re-perguntados até
+ * `MAX_PROMPT_ATTEMPTS` vezes antes de abortar. Isso evita que uma variável
+ * obrigatória sem valor padrão (usuário aperta Enter sem digitar nada)
+ * derrube o projeto já extraído por um simples deslize. O limite também
+ * evita loop infinito quando stdin não é interativo, onde `ask` retorna
+ * string vazia repetidamente em EOF. O motivo da recusa é incorporado à
+ * pergunta da próxima tentativa.
+ */
+async function resolveVariableFromPrompt(
+  variable: TemplateVariable,
+  prompt: Prompt,
+): Promise<string> {
+  let question = variable.prompt;
+  let lastError: CliError | undefined;
+
+  for (let attempt = 0; attempt < MAX_PROMPT_ATTEMPTS; attempt += 1) {
+    const value = await prompt.ask(question, variable.default);
+
+    try {
+      validateVariable(variable, value);
+      return value;
+    } catch (error) {
+      if (!(error instanceof CliError)) {
+        throw error;
+      }
+
+      lastError = error;
+      question = `${error.message}. ${variable.prompt}`;
+    }
+  }
+
+  throw lastError ?? new CliError(`A variável ${variable.name} é obrigatória`);
 }
 
 function validateVariable(variable: TemplateVariable, value: string): void {
@@ -202,7 +349,7 @@ async function renderTemplateFiles(
   values: Record<string, string>,
 ): Promise<void> {
   for (const relativePath of manifest.render.include) {
-    const filePath = resolveTemplatePath(destination, relativePath);
+    const filePath = await resolveTemplatePath(destination, relativePath);
     await ensureRegularFile(filePath);
     const content = await readFile(filePath, 'utf8');
     const rendered = renderTemplateContent(relativePath, content, values);
@@ -252,12 +399,24 @@ function renderJsonValue(
   return value;
 }
 
+const PLACEHOLDER_PATTERN = /\{\{([^{}]+)\}\}/g;
+
+/**
+ * Substitui placeholders `{{nome}}` em uma única passagem sobre o conteúdo.
+ *
+ * Usar `String.replace` com um regex global garante que cada trecho do
+ * conteúdo original seja varrido exatamente uma vez: o valor de substituição
+ * retornado pelo callback nunca é reprocessado pelo próprio regex. Isso
+ * evita que um valor contendo `{{outraVariavel}}` seja expandido de forma
+ * recursiva e torna o resultado independente da ordem das chaves em
+ * `values`. Placeholders não declarados em `values` são preservados
+ * literalmente.
+ */
 function renderText(content: string, values: Record<string, string>): string {
-  return Object.entries(values).reduce(
-    (currentContent, [name, value]) =>
-      currentContent.split(`{{${name}}}`).join(value),
-    content,
-  );
+  return content.replace(PLACEHOLDER_PATTERN, (match, name: string) => {
+    const value = values[name];
+    return value === undefined ? match : value;
+  });
 }
 
 function ensureVariablesWereRendered(
@@ -277,16 +436,27 @@ function ensureVariablesWereRendered(
 async function removeTemplateMetadata(destination: string): Promise<void> {
   await Promise.all(
     ['template.json', 'TEMPLATE.md'].map(async (relativePath) => {
-      const path = resolveTemplatePath(destination, relativePath);
+      const path = await resolveTemplatePath(destination, relativePath);
       await rm(path, { force: true });
     }),
   );
 }
 
-function resolveTemplatePath(
+/**
+ * Resolve um caminho declarado pelo manifesto e garante que ele permaneça
+ * dentro do diretório de destino.
+ *
+ * A checagem léxica com `resolve()` é a primeira barreira, mas não resolve
+ * links simbólicos em diretórios intermediários. Por isso o caminho real
+ * (`realpath`) do destino e do caminho alvo também é comparado — os dois
+ * lados precisam passar por `realpath`, pois em alguns sistemas (ex.: `/tmp`
+ * no macOS, que é um link para `/private/tmp`) apenas o destino já contém um
+ * link simbólico normalizado pelo próprio SO.
+ */
+async function resolveTemplatePath(
   destination: string,
   relativePath: string,
-): string {
+): Promise<string> {
   const root = resolve(destination);
   const resolvedPath = resolve(root, relativePath);
 
@@ -296,7 +466,41 @@ function resolveTemplatePath(
     );
   }
 
+  await ensureRealPathIsContained(root, resolvedPath);
+
   return resolvedPath;
+}
+
+async function ensureRealPathIsContained(
+  root: string,
+  targetPath: string,
+): Promise<void> {
+  const realRoot = await realpath(root);
+  const realTarget = await resolveRealPath(targetPath);
+
+  if (realTarget !== realRoot && !realTarget.startsWith(`${realRoot}${sep}`)) {
+    throw new CliError(
+      'O manifesto tentou acessar um arquivo fora do diretório do projeto',
+    );
+  }
+}
+
+/**
+ * Resolve o caminho real de `targetPath`. Quando o arquivo ainda não existe
+ * (por exemplo, um caminho que será escrito), resolve o caminho real do
+ * diretório pai e compõe com o nome do arquivo.
+ */
+async function resolveRealPath(targetPath: string): Promise<string> {
+  try {
+    return await realpath(targetPath);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      const realParent = await realpath(dirname(targetPath));
+      return resolve(realParent, basename(targetPath));
+    }
+
+    throw error;
+  }
 }
 
 async function ensureRegularFile(path: string): Promise<void> {
@@ -308,11 +512,19 @@ async function ensureRegularFile(path: string): Promise<void> {
 }
 
 function isNotFoundError(error: unknown): error is NodeJS.ErrnoException {
+  return hasErrorCode(error, 'ENOENT');
+}
+
+function isNotDirectoryError(error: unknown): error is NodeJS.ErrnoException {
+  return hasErrorCode(error, 'ENOTDIR');
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
   return (
     typeof error === 'object' &&
     error !== null &&
     'code' in error &&
-    error.code === 'ENOENT'
+    error.code === code
   );
 }
 
