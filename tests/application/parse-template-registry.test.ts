@@ -102,6 +102,7 @@ describe('parseTemplateRegistry', () => {
   });
 
   it.each([
+    '1.2.3',
     'v01.2.3',
     'v1.02.3',
     'v1.2.03',
