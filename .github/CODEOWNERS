@@ -14,8 +14,14 @@
 /.github/instructions/ @marcelocmenezes
 /.github/prompts/ @marcelocmenezes
 /.github/copilot-instructions.md @marcelocmenezes
+/.github/pr-agent.md @marcelocmenezes
+/.github/pull_request_template.md @marcelocmenezes
+/.pr_agent.toml @marcelocmenezes
+/CLAUDE.md @marcelocmenezes
+/docs/harness-improvements.md @marcelocmenezes
 /scripts/agent-hooks/ @marcelocmenezes
 /tests/scripts/agent-hooks/ @marcelocmenezes
+/tests/scripts/require-harness-approval.test.ts @marcelocmenezes
 /lefthook.yml @marcelocmenezes
 
 # Políticas auto-referenciais.

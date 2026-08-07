@@ -30,12 +30,17 @@ describe('require-harness-approval', () => {
 
   it.each([
     'AGENTS.md',
+    'CLAUDE.md',
     '.claude/settings.json',
+    '.github/pull_request_template.md',
     '.github/workflows/pr-policy.yml',
+    '.pr_agent.toml',
     '.semgrep/rules/unsafe-child-process.yaml',
     'dangerfile.ts',
+    'docs/harness-improvements.md',
     'scripts/agent-hooks/guard-shell-command.mjs',
     'scripts/danger/pr-policies.ts',
+    'tests/scripts/require-harness-approval.test.ts',
   ])('reprova alteração sensível sem confirmação: %s', (file) => {
     const result = runCheck([file], []);
 

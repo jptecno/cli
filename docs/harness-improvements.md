@@ -12,7 +12,7 @@ A label reduz o risco de uma alteração acidental feita por agente, mas não eq
 
 ### Interpretação de comandos shell
 
-O gate classifica invocações literais conhecidas e pede confirmação para construções dinâmicas. Ele não executa o comando nem interpreta integralmente Bash ou PowerShell. Indireções arbitrárias, código gerado em runtime e ferramentas desconhecidas não podem ser provados seguros por uma análise textual.
+O gate classifica invocações literais conhecidas e pede confirmação para algumas construções dinâmicas reconhecidas, como executável por variável, `eval`, shell aninhado, command substitution, heredoc e shell recebendo pipeline. Ele não executa o comando nem interpreta integralmente Bash ou PowerShell. Indireções arbitrárias, código gerado em runtime e ferramentas desconhecidas não podem ser provados seguros por uma análise textual.
 
 O hook complementa, mas não substitui:
 
@@ -22,6 +22,12 @@ O hook complementa, mas não substitui:
 - checks obrigatórios da CI;
 - proteção das branches permanentes;
 - revisão consciente do diff.
+
+### Bootstrap e integridade da política
+
+O gate de label usa arquivos da branch base e possui fallback durante sua introdução, pois o script ainda não existe na base deste primeiro pull request. Depois do merge, mudanças futuras passam a usar o script confiável já presente na base.
+
+O workflow atual ainda vive no mesmo repositório e não é uma raiz de confiança externa. Um required check ausente bloqueia o merge, mas uma política realmente imutável exige um workflow `pull_request_target` cuidadosamente isolado, GitHub App ou serviço externo que nunca execute conteúdo do head. Essa migração permanece no backlog.
 
 ### Timeout de hooks
 
@@ -34,7 +40,7 @@ O feedback rápido observa `Edit`, `Write` e `NotebookEdit` e valida apenas exte
 ## Backlog
 
 1. Adicionar um segundo mantenedor ou equipe e então habilitar `required_approving_review_count`, code owner review e aprovação do último push.
-2. Avaliar um GitHub App ou serviço externo com política imutável fora do repositório para revisar mudanças no próprio harness.
+2. Migrar o gate para um workflow `pull_request_target` isolado após o bootstrap, ou avaliar um GitHub App/serviço externo com política imutável, sem executar conteúdo do head.
 3. Substituir a classificação shell local por parser mantido e multiplataforma quando houver uma biblioteca estável que cubra Bash e PowerShell sem ampliar excessivamente a superfície de dependências.
 4. Adicionar execução de testes dos hooks em Windows para validar volumes distintos, symlinks e sintaxe PowerShell em ambiente real.
 5. Avaliar feedback incremental para Markdown e YAML sem tornar cada edição lenta.

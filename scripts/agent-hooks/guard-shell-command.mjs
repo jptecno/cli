@@ -200,6 +200,9 @@ function classifyGit(tokens) {
   );
   const args = tokens.slice(index + 1);
 
+  if (command.includes('$')) {
+    return 'ask';
+  }
   if (
     [
       'clone',
@@ -217,10 +220,16 @@ function classifyGit(tokens) {
   if (command === 'reset' && args.includes('--hard')) {
     return 'ask';
   }
-  if (command === 'clean' && args.some((arg) => /^-[a-z]*f/i.test(arg))) {
+  if (
+    command === 'clean' &&
+    args.some((arg) => arg === '--force' || /^-[a-z]*f/i.test(arg))
+  ) {
     return 'ask';
   }
-  if (command === 'branch' && args.some((arg) => /^-[dD]$/.test(arg))) {
+  if (
+    command === 'branch' &&
+    args.some((arg) => arg === '--delete' || /^-[dD]$/.test(arg))
+  ) {
     return 'ask';
   }
   if (
@@ -261,6 +270,29 @@ function classifyGitHub(tokens) {
   );
   const args = tokens.slice(index + 1).map((arg) => arg.toLowerCase());
 
+  if (group.includes('$')) {
+    return 'ask';
+  }
+  if (group === 'api') {
+    const methodArgument = args.find((arg) =>
+      /^(?:-x.+|-x$|--method(?:=|$))/.test(arg),
+    );
+    const methodIndex = methodArgument ? args.indexOf(methodArgument) : -1;
+    const method = !methodArgument
+      ? undefined
+      : methodArgument.startsWith('-x') && methodArgument.length > 2
+        ? methodArgument.slice(2)
+        : methodArgument.includes('=')
+          ? methodArgument.split('=')[1]
+          : args[methodIndex + 1];
+    const sendsFields = args.some((arg) =>
+      /^-(?:f|F)$|^--(?:field|raw-field)(?:=|$)/.test(arg),
+    );
+    if (sendsFields || (method && method.toUpperCase() !== 'GET')) {
+      return 'ask';
+    }
+  }
+
   const riskyActions = {
     pr: ['close', 'create', 'edit', 'merge', 'reopen'],
     release: ['create', 'delete', 'edit'],
@@ -270,25 +302,20 @@ function classifyGitHub(tokens) {
     variable: ['delete', 'set'],
     workflow: ['run'],
   };
-  if (riskyActions[group]?.some((action) => args.includes(action))) {
+  const { command: action } = findSubcommand(
+    [group, ...args],
+    new Set([
+      '-R',
+      '--hostname',
+      '--json',
+      '--limit',
+      '--repo',
+      '--search',
+      '--state',
+    ]),
+  );
+  if (action.includes('$') || riskyActions[group]?.includes(action)) {
     return 'ask';
-  }
-  if (group === 'api') {
-    const methodArgument = args.find((arg) =>
-      /^(?:-x|--method)(?:=|$)/.test(arg),
-    );
-    const methodIndex = methodArgument ? args.indexOf(methodArgument) : -1;
-    const method = !methodArgument
-      ? undefined
-      : methodArgument.includes('=')
-        ? methodArgument.split('=')[1]
-        : args[methodIndex + 1];
-    const sendsFields = args.some((arg) =>
-      /^-(?:f|F)$|^--(?:field|raw-field)(?:=|$)/.test(arg),
-    );
-    if (sendsFields || (method && method.toUpperCase() !== 'GET')) {
-      return 'ask';
-    }
   }
   return null;
 }
@@ -300,6 +327,9 @@ function classifyNpm(tokens) {
   );
   const args = tokens.slice(index + 1).map((arg) => arg.toLowerCase());
 
+  if (command.includes('$')) {
+    return 'ask';
+  }
   if (
     [
       'access',
@@ -362,7 +392,10 @@ export function evaluateShellCommand(command) {
     };
   }
 
-  let decision = command.includes('<<') || command.includes('`') ? 'ask' : null;
+  let decision =
+    command.includes('<<') || command.includes('`') || command.includes('$(')
+      ? 'ask'
+      : null;
   for (const segment of splitShellSegments(command)) {
     const segmentDecision = classifySegment(segment);
     if (segmentDecision === 'deny') {

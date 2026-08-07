@@ -24,9 +24,7 @@ concurrency:
 jobs:
   danger:
     name: Danger JS
-    if: >-
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -54,7 +52,11 @@ jobs:
             --paginate --jq '.[].filename' > /tmp/changed-files
           gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
             --jq '.labels[].name' > /tmp/pr-labels
-          node scripts/danger/require-harness-approval.mjs /tmp/changed-files /tmp/pr-labels
+          if [[ -f scripts/danger/require-harness-approval.mjs ]]; then
+            node scripts/danger/require-harness-approval.mjs /tmp/changed-files /tmp/pr-labels
+          else
+            echo '::notice::Gate de aprovação do harness será obrigatório após este workflow chegar à branch base.'
+          fi
           if grep -Eq '^(dangerfile\.ts|scripts/danger/)' /tmp/changed-files; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
             echo '::notice::Danger JS não executa alterações da própria política antes do merge.'
@@ -64,6 +66,7 @@ jobs:
 
       - name: Set up Node.js
         if: >-
+          github.event.pull_request.head.repo.full_name == github.repository &&
           steps.dangerfile.outputs.available == 'true' &&
           steps.policy.outputs.changed == 'false'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -73,12 +76,14 @@ jobs:
 
       - name: Install trusted dependencies
         if: >-
+          github.event.pull_request.head.repo.full_name == github.repository &&
           steps.dangerfile.outputs.available == 'true' &&
           steps.policy.outputs.changed == 'false'
         run: npm ci
 
       - name: Review pull request policies
         if: >-
+          github.event.pull_request.head.repo.full_name == github.repository &&
           steps.dangerfile.outputs.available == 'true' &&
           steps.policy.outputs.changed == 'false'
         env:

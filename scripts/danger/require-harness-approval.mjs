@@ -4,20 +4,26 @@ export const HARNESS_APPROVAL_LABEL = 'harness-change-approved';
 
 const harnessPaths = [
   /^AGENTS\.md$/,
+  /^CLAUDE\.md$/,
   /^\.agents\//,
   /^\.claude\//,
   /^\.github\/CODEOWNERS$/,
   /^\.github\/agents\//,
   /^\.github\/copilot-instructions\.md$/,
   /^\.github\/instructions\//,
+  /^\.github\/pr-agent\.md$/,
   /^\.github\/prompts\//,
+  /^\.github\/pull_request_template\.md$/,
   /^\.github\/workflows\//,
+  /^\.pr_agent\.toml$/,
   /^\.semgrep\/rules\//,
   /^dangerfile\.ts$/,
+  /^docs\/harness-improvements\.md$/,
   /^lefthook\.yml$/,
   /^scripts\/agent-hooks\//,
   /^scripts\/danger\//,
   /^tests\/scripts\/agent-hooks\//,
+  /^tests\/scripts\/require-harness-approval\.test\.ts$/,
 ];
 
 export function requiresHarnessApproval(files) {
