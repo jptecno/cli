@@ -28,5 +28,14 @@ jobs:
       - name: Audit runtime dependencies
         run: npm audit --audit-level=high --omit=dev
 
-      - name: Validate
-        run: npm run check
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build

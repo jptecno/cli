@@ -36,21 +36,89 @@ function section(body: string, heading: string): string {
   return match?.[1] ?? '';
 }
 
+const namedPolicyEntities: Readonly<Record<string, string>> = {
+  amp: '&',
+  apos: "'",
+  atilde: 'ã',
+  emsp: ' ',
+  ensp: ' ',
+  gt: '>',
+  lt: '<',
+  nbsp: ' ',
+  quot: '"',
+  sol: '/',
+  thinsp: ' ',
+  zerowidthspace: '',
+};
+
+function decodePolicyEntities(value: string): string {
+  return value.replace(
+    /&#([0-9]+);?|&#x([0-9a-f]+);?|&([a-z][a-z0-9]+);/gi,
+    (entity, decimal: string, hexadecimal: string, named: string) => {
+      if (decimal || hexadecimal) {
+        const codePoint = Number.parseInt(
+          decimal || hexadecimal,
+          decimal ? 10 : 16,
+        );
+        return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : '';
+      }
+      return namedPolicyEntities[named.toLocaleLowerCase('en-US')] ?? entity;
+    },
+  );
+}
+
 function meaningfulText(value: string): string {
-  return value
+  return decodePolicyEntities(value)
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/```[\s\S]*?```/g, '')
+    .replace(/<\/?[a-z][^>]*>/gi, '')
+    .replace(/&[a-z][a-z0-9]+;/gi, '')
+    .replace(/[\p{Cf}\p{M}]/gu, '')
     .replace(/^\s*[-*]\s*$/gm, '')
     .replace(/^\s*- \[[ x]\].*$/gim, '')
     .replace(/[#*_`>]/g, '')
     .trim();
 }
 
-function hasPromotionField(body: string, label: string): boolean {
-  const line = section(body, 'Homologação, release e produção')
+function sectionFieldRawValue(
+  body: string,
+  heading: string,
+  label: string,
+): string {
+  const line = section(body, heading)
     .split('\n')
     .find((candidate) => candidate.trim().startsWith(`- ${label}:`));
-  return meaningfulText(line?.slice(line.indexOf(':') + 1) ?? '').length > 0;
+  return line?.slice(line.indexOf(':') + 1) ?? '';
+}
+
+function sectionFieldValue(
+  body: string,
+  heading: string,
+  label: string,
+): string {
+  return meaningfulText(sectionFieldRawValue(body, heading, label));
+}
+
+function hasPromotionField(body: string, label: string): boolean {
+  return (
+    sectionFieldValue(body, 'Homologação, release e produção', label).length > 0
+  );
+}
+
+function hasLargePullRequestField(body: string, label: string): boolean {
+  const fieldValue = sectionFieldValue(body, 'Escopo e tamanho', label);
+  const normalizedValue = fieldValue
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/^[\p{P}\p{S}]+|[\p{P}\p{S}]+$/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return (
+    /[\p{L}\p{N}]/u.test(fieldValue) &&
+    normalizedValue !== 'nao se aplica' &&
+    normalizedValue !== 'n/a'
+  );
 }
 
 function isBot(author: string): boolean {
@@ -133,12 +201,16 @@ export function evaluatePullRequest(facts: PullRequestFacts): PolicyResults {
     failures.push(`Não versione artefatos gerados: ${artifacts.join(', ')}.`);
   }
 
+  const largePullRequest =
+    facts.files.length > 30 || facts.additions + facts.deletions > 500;
   if (
-    !bodyTemplateWaived &&
-    (facts.files.length > 30 || facts.additions + facts.deletions > 500)
+    largePullRequest &&
+    !isBot(facts.author) &&
+    (!hasLargePullRequestField(body, 'Motivo para não dividir') ||
+      !hasLargePullRequestField(body, 'Estratégia de revisão'))
   ) {
-    warnings.push(
-      'PR grande: considere dividir a mudança para facilitar a revisão.',
+    failures.push(
+      'PR grande: divida a mudança ou preencha Motivo para não dividir e Estratégia de revisão na seção Escopo e tamanho.',
     );
   }
 
