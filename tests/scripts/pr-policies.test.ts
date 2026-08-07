@@ -258,15 +258,187 @@ Sem impacto.`,
     );
   });
 
-  it('avisa sobre PR grande sem reprovar', () => {
+  it('reprova PR humano grande sem justificativa e estratégia de revisão', () => {
     expect(
       evaluatePullRequest(facts({ additions: 450, deletions: 51 })),
     ).toEqual({
-      failures: [],
-      warnings: [
-        'PR grande: considere dividir a mudança para facilitar a revisão.',
+      failures: [
+        'PR grande: divida a mudança ou preencha Motivo para não dividir e Estratégia de revisão na seção Escopo e tamanho.',
       ],
+      warnings: [],
     });
+  });
+
+  it('aplica a política somente acima de 30 arquivos ou 500 linhas', () => {
+    const thirtyFiles = Array.from(
+      { length: 30 },
+      (_, index) => `docs/policy-${index}.md`,
+    );
+    const thirtyOneFiles = [...thirtyFiles, 'docs/policy-30.md'];
+
+    expect(
+      evaluatePullRequest(
+        facts({ files: thirtyFiles, additions: 400, deletions: 100 }),
+      ),
+    ).toEqual({ failures: [], warnings: [] });
+    expect(
+      evaluatePullRequest(
+        facts({ files: thirtyFiles, additions: 401, deletions: 100 }),
+      ).failures,
+    ).toContain(
+      'PR grande: divida a mudança ou preencha Motivo para não dividir e Estratégia de revisão na seção Escopo e tamanho.',
+    );
+    expect(
+      evaluatePullRequest(facts({ files: thirtyOneFiles })).failures,
+    ).toContain(
+      'PR grande: divida a mudança ou preencha Motivo para não dividir e Estratégia de revisão na seção Escopo e tamanho.',
+    );
+  });
+
+  it.each([
+    'Não se aplica',
+    'Nao se aplica',
+    'Não se aplica;',
+    'Não se aplica?',
+    'Não se aplica,',
+    'Não se aplica…',
+    'Não se aplica—',
+    'N&atilde;o se aplica',
+    'N&#227;o se aplica',
+    'N/A',
+    'N&#47;A',
+    'N&sol;A',
+  ])('reprova motivo não aplicável em PR grande: %s', (placeholder) => {
+    const body = `${completeBody}
+
+## Escopo e tamanho
+
+- Motivo para não dividir: ${placeholder}
+- Estratégia de revisão: revisar por grupos de arquivos relacionados.
+`;
+
+    expect(
+      evaluatePullRequest(facts({ body, additions: 501 })).failures,
+    ).toContain(
+      'PR grande: divida a mudança ou preencha Motivo para não dividir e Estratégia de revisão na seção Escopo e tamanho.',
+    );
+  });
+
+  it('reprova estratégia de revisão marcada como não aplicável', () => {
+    const body = `${completeBody}
+
+## Escopo e tamanho
+
+- Motivo para não dividir: os arquivos formam uma única migração atômica.
+- Estratégia de revisão: Não se aplica.
+`;
+
+    expect(
+      evaluatePullRequest(facts({ body, additions: 501 })).failures,
+    ).toContain(
+      'PR grande: divida a mudança ou preencha Motivo para não dividir e Estratégia de revisão na seção Escopo e tamanho.',
+    );
+  });
+
+  it.each([
+    '<br>',
+    '&nbsp;',
+    '&ensp;',
+    '&thinsp;',
+    '&#8203;',
+    '&#8204;',
+    '&#8205;',
+    '&#8288;',
+    '&#65279;',
+    '\u200B',
+  ])('reprova conteúdo visualmente vazio em PR grande: %s', (placeholder) => {
+    const body = `${completeBody}
+
+## Escopo e tamanho
+
+- Motivo para não dividir: ${placeholder}
+- Estratégia de revisão: revisar por grupos de arquivos relacionados.
+`;
+
+    expect(
+      evaluatePullRequest(facts({ body, additions: 501 })).failures,
+    ).toContain(
+      'PR grande: divida a mudança ou preencha Motivo para não dividir e Estratégia de revisão na seção Escopo e tamanho.',
+    );
+  });
+
+  it('reprova PR grande quando apenas um dos campos está preenchido', () => {
+    const body = `${completeBody}
+
+## Escopo e tamanho
+
+- Motivo para não dividir: os arquivos formam uma única migração atômica.
+- Estratégia de revisão:
+`;
+
+    expect(
+      evaluatePullRequest(facts({ body, additions: 501 })).failures,
+    ).toContain(
+      'PR grande: divida a mudança ou preencha Motivo para não dividir e Estratégia de revisão na seção Escopo e tamanho.',
+    );
+  });
+
+  it('aceita PR humano grande com justificativa e estratégia de revisão', () => {
+    const body = `${completeBody}
+
+## Escopo e tamanho
+
+- Motivo para não dividir: os módulos A&amp;B formam uma única migração atômica.
+- Estratégia de revisão: revisar por commit e validar cada sensor separadamente.
+`;
+
+    expect(
+      evaluatePullRequest(facts({ body, additions: 450, deletions: 51 })),
+    ).toEqual({ failures: [], warnings: [] });
+  });
+
+  it('mantém automação conhecida isenta da justificativa de tamanho', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          title: 'chore(deps-dev): bump vitest from 3.2.7 to 4.1.10',
+          body: 'Bumps vitest from 3.2.7 to 4.1.10.',
+          headBranch: 'dependabot/npm_and_yarn/development/vitest-4.1.10',
+          author: 'dependabot[bot]',
+          files: ['package.json', 'package-lock.json'],
+          additions: 900,
+          deletions: 900,
+        }),
+      ),
+    ).toEqual({ failures: [], warnings: [] });
+  });
+
+  it('isenta autor bot da justificativa de tamanho em branch comum', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          headBranch: 'chore/sync-release-v0.3.0',
+          author: 'github-actions[bot]',
+          additions: 900,
+          deletions: 900,
+        }),
+      ),
+    ).toEqual({ failures: [], warnings: [] });
+  });
+
+  it('não isenta PR humano grande por usar branch com nome de bot', () => {
+    expect(
+      evaluatePullRequest(
+        facts({
+          headBranch: 'dependabot/npm_and_yarn/development/vitest-4.1.10',
+          author: 'atacante',
+          additions: 900,
+          deletions: 900,
+        }),
+      ).failures,
+    ).toContain(
+      'PR grande: divida a mudança ou preencha Motivo para não dividir e Estratégia de revisão na seção Escopo e tamanho.',
+    );
   });
 
   it('avisa sobre alteração comportamental sem exigir teste para toda mudança', () => {
