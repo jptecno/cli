@@ -1,6 +1,6 @@
 {
   "name": "@jptecno/cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "CLI para criar projetos a partir dos templates da JP Tecno.",
   "license": "MIT",
   "keywords": [
@@ -57,6 +57,6 @@
     "lefthook": "2.1.10",
     "tsx": "^4.19.2",
     "vitest": "^4.1.10",
-    "typescript": "^7.0.2"
+    "typescript": "6.0.3"
   }
 }
