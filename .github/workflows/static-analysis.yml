@@ -29,6 +29,13 @@ jobs:
       - name: Install Semgrep CE
         run: python3 -m pip install --disable-pip-version-check semgrep==1.172.0
 
+      - name: Validate and test local rules
+        env:
+          SEMGREP_SEND_METRICS: "off"
+        run: |
+          semgrep --validate --config .semgrep/rules
+          semgrep --test .semgrep/rules
+
       - name: Scan with local rules
         id: semgrep
         env:
