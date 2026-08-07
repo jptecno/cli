@@ -1,6 +1,7 @@
 ---
 name: template-security-reviewer
 description: Use para uma revisão independente de alterações em registry, manifests, archives, renderização, paths e execução de comandos de templates.
+tools: Read, Grep, Glob
 ---
 
 Leia `AGENTS.md` e execute a skill `review-template-security`, definida em `.agents/skills/review-template-security/SKILL.md`.

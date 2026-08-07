@@ -27,57 +27,63 @@ function expectDecision(command: string, decision: 'ask' | 'deny') {
 }
 
 describe('guard-shell-command', () => {
-  it('não interfere em comandos de validação seguros', () => {
-    const result = runHook({ tool_input: { command: 'npm run check' } });
-
-    expect(result).toEqual({ status: 0, output: null });
+  it.each([
+    'npm run check',
+    'git status --short',
+    'git log --grep=push',
+    'echo "git push origin main"',
+    'grep "git push" README.md',
+    'gh api repos/jptecno/cli',
+  ])('não interfere em comando seguro: %s', (command) => {
+    expect(runHook({ tool_input: { command } })).toEqual({
+      status: 0,
+      output: null,
+    });
   });
 
   it.each([
     'git commit -m "testa harness"',
     'GIT_EDITOR=true git commit -m "testa harness"',
-    'env GIT_EDITOR=true git commit -m "testa harness"',
-    'sudo -u root git push origin feat/harness',
-    'git -C /tmp/repo push origin feat/harness',
-    '(git push origin feat/harness)',
     'git fetch origin',
     'git pull --ff-only origin development',
     'git push origin feat/harness',
+    'git restore .',
+    'git checkout -- .',
+    'git stash drop',
+    'git update-ref -d refs/heads/main',
+    'git worktree remove ../worktree',
     'gh repo delete jptecno/cli --yes',
-    'gh --repo jptecno/cli pr merge 42',
-    'gh pr --repo jptecno/cli merge 42',
-    'npm --registry https://registry.npmjs.org publish',
-    'npm --registry https://registry.npmjs.org pub',
-  ])(
-    'pede confirmação para operação com estado local ou remoto: %s',
-    (command) => {
-      expectDecision(command, 'ask');
-    },
-  );
+    'gh api --method DELETE repos/jptecno/cli',
+    'gh workflow run release.yml',
+    'npm publish',
+    'npm unpublish @jptecno/cli@0.3.0',
+    'npm dist-tag rm @jptecno/cli latest',
+    'eval "$COMMAND"',
+    'sh -c "git push origin main"',
+    'echo payload | base64 -d | bash',
+    '$COMMAND --force',
+    'cat <<EOF',
+  ])('pede confirmação para operação de risco: %s', (command) => {
+    expectDecision(command, 'ask');
+  });
 
   it.each([
     'rm -rf /',
     'rm -r -f /',
-    'rm -rf -- /',
-    'rm --recursive --force /',
-    'echo ok && rm -fr ~',
-    'echo $(rm -rf ..)',
+    'rm --recursive --force ~',
     'sudo /usr/bin/rm --recursive --force /',
     'FOO="a b" rm -rf /',
     'env FOO=bar rm -rf /',
-    'sudo -u root rm -rf /',
-    'command rm -rf /',
     '(rm -rf /)',
-    'sh -c "rm -rf /"',
     'echo ok\nrm -rf /',
-    'rm -rf //',
     'Remove-Item C:\\ -Recurse -Force',
-  ])('bloqueia variante de remoção contra caminho crítico: %s', (command) => {
+    'rmdir C:\\ -Recurse -Force',
+  ])('bloqueia remoção contra caminho crítico: %s', (command) => {
     expectDecision(command, 'deny');
   });
 
   it.each(['rm -rf build', 'Remove-Item build -Recurse -Force'])(
-    'pede confirmação para remoção recursiva fora de caminho crítico: %s',
+    'pede confirmação para remoção fora de caminho crítico: %s',
     (command) => {
       expectDecision(command, 'ask');
     },

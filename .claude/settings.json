@@ -1,5 +1,17 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(gh pr merge *)",
+      "Bash(npm publish *)",
+      "Bash(npm unpublish *)",
+      "Bash(rm -rf *)",
+      "PowerShell(Remove-Item *)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -11,14 +23,14 @@
             "args": [
               "${CLAUDE_PROJECT_DIR}/scripts/agent-hooks/guard-shell-command.mjs"
             ],
-            "timeout": 5
+            "timeout": 30
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|NotebookEdit",
         "hooks": [
           {
             "type": "command",
