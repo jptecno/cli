@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.1](https://github.com/jptecno/cli/compare/v0.3.0...v0.3.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* **danger:** faz a automação seguir o padrão de pull request ([b750150](https://github.com/jptecno/cli/commit/b750150bd46139378c631cf97032ec37c5f6e6e6))
+* **danger:** faz a automação seguir o padrão em vez de isentá-la ([2c06d0b](https://github.com/jptecno/cli/commit/2c06d0b1c0db78a40268fb24ddbf89bd242a0b30))
+* **danger:** isenta também as pull requests do Dependabot ([daeb49c](https://github.com/jptecno/cli/commit/daeb49c987636b42cfcacbe1efbb4b89786afa40))
+* **danger:** isenta também as pull requests do Dependabot ([eeb7a0c](https://github.com/jptecno/cli/commit/eeb7a0cf719e4ed4fc0b3f188a0fcbdb0286b825))
+
 ## [0.3.0](https://github.com/jptecno/cli/compare/v0.2.1...v0.3.0) (2026-08-06)
 
 
