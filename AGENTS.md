@@ -15,6 +15,8 @@ Mantenha as versões e os scripts definidos em `package.json` como fonte de verd
 
 Este arquivo é a fonte canônica e autocontida das regras operacionais para Claude Code, OpenCode, Codex, Cursor, Gemini CLI e demais agentes. Não dependa de links ou de outros documentos para encontrar instruções obrigatórias. `CONTRIBUTING.md` explica o processo para contribuidores humanos e complementa este arquivo, mas não substitui nenhuma regra abaixo.
 
+Agentes não devem criar commits, fazer push, abrir ou atualizar pull requests, fazer merge, criar tags, publicar releases ou executar outras operações remotas sem solicitação explícita do usuário. Instruções operacionais abaixo descrevem o fluxo permitido, não concedem autorização para executá-lo autonomamente.
+
 ## Arquitetura e Estrutura
 
 A CLI mantém separação simples entre fluxo de aplicação e detalhes de infraestrutura:
@@ -108,9 +110,9 @@ Fluxo obrigatório de promoção:
 5. Abra pull request de `development` para `main` somente após a homologação em `development`.
 6. Faça merge em `main` somente com CI verde e aprovação; essa branch representa produção.
 
-O ruleset ativo `Proteção de branches permanentes` (ID `20485383`) cobre a branch padrão (`main`) e `development`. Ele exige pull request, uma aprovação e conversas resolvidas; também bloqueia exclusão de branches e force push, sem bypass configurado.
+O ruleset ativo `Proteção de branches permanentes` (ID `20485383`) cobre a branch padrão (`main`) e `development`. Ele exige pull request e conversas resolvidas; também bloqueia exclusão de branches e force push, sem bypass configurado. Como o projeto possui um único mantenedor, aprovação humana e code owner review não são obrigatórios, pois o autor não pode aprovar o próprio pull request.
 
-O ruleset exige o check obrigatório `check` da GitHub Actions. Assim, além da execução local de `npm run check`, a CI desse check precisa estar verde para permitir o merge. Mantenha segredos e configurações de ambiente no provedor de deploy, nunca em branches ou arquivos versionados.
+Os checks obrigatórios são `check`, `Semgrep CE` e `Danger JS`. Alterações no próprio harness, nas instruções, nos workflows, nas regras Semgrep ou nas políticas Danger exigem a label `harness-change-approved`, aplicada manualmente pelo mantenedor após revisar o diff. A label é uma confirmação consciente em duas etapas, não uma revisão independente, e não substitui os checks obrigatórios. Mantenha segredos e configurações de ambiente no provedor de deploy, nunca em branches ou arquivos versionados.
 
 Para hotfixes urgentes feitos a partir de `main`, promova a correção de volta para `development` por pull request ou merge, evitando divergência entre as branches permanentes.
 
