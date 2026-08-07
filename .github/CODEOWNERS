@@ -4,3 +4,22 @@
 /package-lock.json @marcelocmenezes
 /release-please-config.json @marcelocmenezes
 /.release-please-manifest.json @marcelocmenezes
+
+# Harness e instruções de agentes. Em projeto solo, estes owners documentam
+# responsabilidade; a label harness-change-approved fornece a confirmação manual.
+/AGENTS.md @marcelocmenezes
+/.agents/ @marcelocmenezes
+/.claude/ @marcelocmenezes
+/.github/agents/ @marcelocmenezes
+/.github/instructions/ @marcelocmenezes
+/.github/prompts/ @marcelocmenezes
+/.github/copilot-instructions.md @marcelocmenezes
+/scripts/agent-hooks/ @marcelocmenezes
+/tests/scripts/agent-hooks/ @marcelocmenezes
+/lefthook.yml @marcelocmenezes
+
+# Políticas auto-referenciais.
+/.github/CODEOWNERS @marcelocmenezes
+/.semgrep/rules/ @marcelocmenezes
+/dangerfile.ts @marcelocmenezes
+/scripts/danger/ @marcelocmenezes

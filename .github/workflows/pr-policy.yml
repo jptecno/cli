@@ -2,7 +2,16 @@ name: Pull request policy
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited, ready_for_review]
+    types:
+      [
+        opened,
+        synchronize,
+        reopened,
+        edited,
+        ready_for_review,
+        labeled,
+        unlabeled,
+      ]
 
 permissions:
   contents: read
@@ -36,13 +45,16 @@ jobs:
             echo '::notice::Danger JS será ativado após este workflow chegar à branch base.'
           fi
 
-      - name: Check policy changes
+      - name: Check harness approval and policy changes
         id: policy
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
             --paginate --jq '.[].filename' > /tmp/changed-files
+          gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
+            --jq '.labels[].name' > /tmp/pr-labels
+          node scripts/danger/require-harness-approval.mjs /tmp/changed-files /tmp/pr-labels
           if grep -Eq '^(dangerfile\.ts|scripts/danger/)' /tmp/changed-files; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
             echo '::notice::Danger JS não executa alterações da própria política antes do merge.'
