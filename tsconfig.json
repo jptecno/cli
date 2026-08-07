@@ -5,6 +5,7 @@
     "outDir": "dist",
     "declaration": true,
     "sourceMap": true,
+    "resolveJsonModule": true,
     "noUncheckedIndexedAccess": true,
     "types": ["node"]
   },
