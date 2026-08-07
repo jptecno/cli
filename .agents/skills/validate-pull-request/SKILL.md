@@ -16,15 +16,16 @@ Prepare uma avaliação objetiva da alteração atual sem criar commits, enviar 
 ## Procedimento
 
 1. Resuma o objetivo observável do diff e sinalize arquivos fora do escopo.
-2. Confirme que o trabalho não está sendo feito diretamente em `development` ou `main` e que o fluxo de worktree descrito em `AGENTS.md` foi respeitado quando isso puder ser verificado.
-3. Verifique as fronteiras arquiteturais entre `src/application/`, `src/contracts/`, `src/adapters/` e `src/main.ts`.
-4. Verifique argumentos e dados externos nas bordas, mensagens acionáveis em português brasileiro e ausência de dados sensíveis.
-5. Quando a alteração envolver templates, execute também a skill `review-template-security`.
-6. Relacione cada mudança de comportamento a testes observáveis. Procure os testes antes de declarar uma lacuna.
-7. Confirme que documentação, exemplos da CLI e configuração foram atualizados quando o comportamento público mudou.
-8. Execute testes específicos quando houver um alvo claro e, ao final, execute `npm run check`.
-9. Execute `npm pack --dry-run` somente quando houver impacto em build, conteúdo publicado, binário, dependências de runtime ou publicação.
-10. Compare as evidências com todas as seções aplicáveis de `.github/pull_request_template.md`.
+2. Conte arquivos e linhas alteradas. Para PR humano acima de 30 arquivos ou 500 linhas, recomende divisão; se a mudança for atomicamente indivisível, exija `Motivo para não dividir` e `Estratégia de revisão` na seção `Escopo e tamanho`. Autores com sufixo `[bot]` são isentos dessa justificativa.
+3. Confirme que o trabalho não está sendo feito diretamente em `development` ou `main` e que o fluxo de worktree descrito em `AGENTS.md` foi respeitado quando isso puder ser verificado.
+4. Verifique as fronteiras arquiteturais entre `src/application/`, `src/contracts/`, `src/adapters/` e `src/main.ts`.
+5. Verifique argumentos e dados externos nas bordas, mensagens acionáveis em português brasileiro e ausência de dados sensíveis.
+6. Quando a alteração envolver templates, execute também a skill `review-template-security`.
+7. Relacione cada mudança de comportamento a testes observáveis. Procure os testes antes de declarar uma lacuna.
+8. Confirme que documentação, exemplos da CLI e configuração foram atualizados quando o comportamento público mudou.
+9. Execute testes específicos quando houver um alvo claro e, ao final, execute `npm run check`.
+10. Execute `npm pack --dry-run` somente quando houver impacto em build, conteúdo publicado, binário, dependências de runtime ou publicação.
+11. Compare as evidências com todas as seções aplicáveis de `.github/pull_request_template.md`.
 
 ## Restrições
 
