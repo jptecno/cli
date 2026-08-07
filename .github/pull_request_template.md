@@ -6,6 +6,13 @@
 
 -
 
+## Escopo e tamanho
+
+<!-- Obrigatório quando o PR alterar mais de 30 arquivos ou 500 linhas. Divida a mudança quando possível; caso seja atomicamente indivisível, preencha os dois campos. Em PR menor, deixe os campos em branco. -->
+
+- Motivo para não dividir:
+- Estratégia de revisão:
+
 ## Comportamento e compatibilidade
 
 <!-- Descreva mudanças observáveis, compatibilidade, deprecações ou escreva "Sem alteração". -->

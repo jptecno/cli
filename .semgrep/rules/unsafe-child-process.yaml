@@ -3,16 +3,41 @@ rules:
     message: Evite executar comandos shell construídos dinamicamente; use executáveis e argumentos fixos.
     severity: ERROR
     languages: [typescript]
-    patterns:
-      - pattern-inside: |
-          import { ..., $EXEC, ... } from 'node:child_process';
-          ...
-      - metavariable-regex:
-          metavariable: $EXEC
-          regex: ^(exec|execSync)$
-      - pattern: $EXEC($COMMAND, ...)
-      - pattern-not: $EXEC('...', ...)
-      - pattern-not: $EXEC("...", ...)
+    pattern-either:
+      - patterns:
+          - pattern-inside: |
+              import { ..., $EXEC, ... } from 'node:child_process';
+              ...
+          - metavariable-regex:
+              metavariable: $EXEC
+              regex: ^(exec|execSync)$
+          - pattern: $EXEC($COMMAND, ...)
+          - pattern-not: $EXEC('...', ...)
+          - pattern-not: $EXEC("...", ...)
+      - patterns:
+          - pattern-inside: |
+              import { ..., $ORIGINAL as $EXEC, ... } from 'node:child_process';
+              ...
+          - metavariable-regex:
+              metavariable: $ORIGINAL
+              regex: ^(exec|execSync)$
+          - pattern: $EXEC($COMMAND, ...)
+          - pattern-not: $EXEC('...', ...)
+          - pattern-not: $EXEC("...", ...)
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  import * as $CHILD_PROCESS from 'node:child_process';
+                  ...
+              - pattern-inside: |
+                  import $CHILD_PROCESS from 'node:child_process';
+                  ...
+          - pattern: $CHILD_PROCESS.$EXEC($COMMAND, ...)
+          - metavariable-regex:
+              metavariable: $EXEC
+              regex: ^(exec|execSync)$
+          - pattern-not: $CHILD_PROCESS.$EXEC('...', ...)
+          - pattern-not: $CHILD_PROCESS.$EXEC("...", ...)
     metadata:
       confidence: HIGH
       category: security

@@ -2,7 +2,16 @@ name: Pull request policy
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited, ready_for_review]
+    types:
+      [
+        opened,
+        synchronize,
+        reopened,
+        edited,
+        ready_for_review,
+        labeled,
+        unlabeled,
+      ]
 
 permissions:
   contents: read
@@ -15,14 +24,12 @@ concurrency:
 jobs:
   danger:
     name: Danger JS
-    if: >-
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout trusted base revision
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
 
@@ -36,13 +43,20 @@ jobs:
             echo '::notice::Danger JS será ativado após este workflow chegar à branch base.'
           fi
 
-      - name: Check policy changes
+      - name: Check harness approval and policy changes
         id: policy
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
             --paginate --jq '.[].filename' > /tmp/changed-files
+          gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
+            --jq '.labels[].name' > /tmp/pr-labels
+          if [[ -f scripts/danger/require-harness-approval.mjs ]]; then
+            node scripts/danger/require-harness-approval.mjs /tmp/changed-files /tmp/pr-labels
+          else
+            echo '::notice::Gate de aprovação do harness será obrigatório após este workflow chegar à branch base.'
+          fi
           if grep -Eq '^(dangerfile\.ts|scripts/danger/)' /tmp/changed-files; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
             echo '::notice::Danger JS não executa alterações da própria política antes do merge.'
@@ -52,21 +66,24 @@ jobs:
 
       - name: Set up Node.js
         if: >-
+          github.event.pull_request.head.repo.full_name == github.repository &&
           steps.dangerfile.outputs.available == 'true' &&
           steps.policy.outputs.changed == 'false'
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
 
       - name: Install trusted dependencies
         if: >-
+          github.event.pull_request.head.repo.full_name == github.repository &&
           steps.dangerfile.outputs.available == 'true' &&
           steps.policy.outputs.changed == 'false'
         run: npm ci
 
       - name: Review pull request policies
         if: >-
+          github.event.pull_request.head.repo.full_name == github.repository &&
           steps.dangerfile.outputs.available == 'true' &&
           steps.policy.outputs.changed == 'false'
         env:
