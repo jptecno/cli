@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.2](https://github.com/jptecno/cli/compare/v0.3.1...v0.3.2) (2026-08-07)
+
+
+### Bug Fixes
+
+* **ci:** corrige imports ESM do Dangerfile ([0067469](https://github.com/jptecno/cli/commit/0067469580d34029b8baf11514550f466fd22a1d))
+* **ci:** mantém TypeScript compatível com Danger ([68f2a71](https://github.com/jptecno/cli/commit/68f2a71eb121a3a85099958e888506ad00588e92))
+* **harness:** fecha gaps de bootstrap e classificação ([a0a47c2](https://github.com/jptecno/cli/commit/a0a47c22ec05c20ce927a3b90d02cd8cd6e85dc3))
+* **harness:** restringe revisores e comandos de risco ([b79804c](https://github.com/jptecno/cli/commit/b79804c57394c0b8029962c7cb8a2949684f2cd0))
+* **release:** resolve conflito do lockfile na promoção ([05e2bb0](https://github.com/jptecno/cli/commit/05e2bb00321cefc964bae7bb22470fb5aa2d93c9))
+* **semgrep:** cobre imports alternativos de child_process ([21dcdb3](https://github.com/jptecno/cli/commit/21dcdb3bda4e45131413c6ac4af8bdb68c010eaa))
+
 ## [0.3.1](https://github.com/jptecno/cli/compare/v0.3.0...v0.3.1) (2026-08-06)
 
 
