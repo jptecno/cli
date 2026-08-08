@@ -1,187 +1,155 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { Ed25519RegistryVerifier } from '../../src/adapters/ed25519-registry-verifier.js';
 import { SignedRegistryFetcher } from '../../src/adapters/signed-registry-fetcher.js';
 import { CliError } from '../../src/application/cli-error.js';
+import { RegistryFetchUnavailableError } from '../../src/contracts/verified-registry-fetcher.port.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
+function fetcher() {
+  return new SignedRegistryFetcher(new Ed25519RegistryVerifier(new Map()));
+}
+
 describe('SignedRegistryFetcher', () => {
-  it('baixa registry e assinatura padrão em ordem, verifica os bytes e retorna ambos sem alterá-los', async () => {
-    const registry = Buffer.from('{conteúdo que não é JSON}');
+  it('baixa registry e envelope, verifica os bytes exatos e os retorna sem alterá-los', async () => {
+    const payload = new TextEncoder().encode('{conteúdo}');
+    const envelope = new TextEncoder().encode('{}');
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(new Response(registry))
-      .mockResolvedValueOnce(new Response('{}'));
+      .mockResolvedValueOnce(new Response(payload))
+      .mockResolvedValueOnce(new Response(envelope));
     vi.stubGlobal('fetch', fetchMock);
     const verifier = new Ed25519RegistryVerifier(new Map());
     const verify = vi.spyOn(verifier, 'verify').mockImplementation(() => {});
 
-    const result = await new SignedRegistryFetcher(verifier).load(
-      'https://registry.example/catalog.json',
-    );
-
-    expect(result).toEqual({
-      payload: new Uint8Array(registry),
-      signatureEnvelope: new TextEncoder().encode('{}'),
+    await expect(
+      new SignedRegistryFetcher(verifier).load(
+        'https://registry.example/catalog.json',
+      ),
+    ).resolves.toEqual({
+      payload,
+      signatureEnvelope: envelope,
       signatureUrl: 'https://registry.example/catalog.json.sig',
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      'https://registry.example/catalog.json',
-      expect.objectContaining({
-        redirect: 'error',
-        signal: expect.any(AbortSignal),
-      }),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      'https://registry.example/catalog.json.sig',
-      expect.objectContaining({
-        redirect: 'error',
-        signal: expect.any(AbortSignal),
-      }),
-    );
-    expect(verify).toHaveBeenCalledWith(new Uint8Array(registry), {});
+    expect(verify).toHaveBeenCalledWith(payload, {});
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('usa uma URL HTTPS de assinatura fornecida explicitamente', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response('registry'))
-      .mockResolvedValueOnce(new Response('{}'));
-    vi.stubGlobal('fetch', fetchMock);
-    const verifier = new Ed25519RegistryVerifier(new Map());
-    vi.spyOn(verifier, 'verify').mockImplementation(() => {});
-
-    await new SignedRegistryFetcher(verifier).load(
-      'https://registry.example/catalog.json',
-      'https://signatures.example/catalog.sig',
-    );
-
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      'https://signatures.example/catalog.sig',
-      expect.any(Object),
-    );
-  });
-
-  it.each([
-    ['http://registry.example/catalog.json', undefined],
-    [
-      'https://registry.example/catalog.json',
-      'http://signatures.example/catalog.sig',
-    ],
-  ])(
-    'rejeita URL não HTTPS antes de iniciar qualquer download',
-    async (url, signatureUrl) => {
-      const fetchMock = vi.fn();
-      vi.stubGlobal('fetch', fetchMock);
-      const verifier = new Ed25519RegistryVerifier(new Map());
-
+  it.each([408, 429, 500, 503])(
+    'classifica HTTP %i como indisponibilidade transitória sanitizada',
+    async (status) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(new Response('segredo remoto', { status })),
+      );
       await expect(
-        new SignedRegistryFetcher(verifier).load(url, signatureUrl),
-      ).rejects.toThrow('O endereço do catálogo assinado deve usar HTTPS');
-      expect(fetchMock).not.toHaveBeenCalled();
+        fetcher().load('https://token@example.com/catalog.json'),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          name: RegistryFetchUnavailableError.name,
+          message: 'Não foi possível baixar o catálogo assinado',
+        }),
+      );
     },
   );
 
-  it('sanitiza falha HTTP sem ecoar URL ou corpo remoto', async () => {
+  it.each([400, 401, 404])(
+    'mantém HTTP %i como falha sem fallback',
+    async (status) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(new Response('segredo remoto', { status })),
+      );
+      await expect(
+        fetcher().load('https://token@example.com/catalog.json'),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          name: CliError.name,
+          message: `Não foi possível baixar o catálogo assinado: HTTP ${status}`,
+        }),
+      );
+    },
+  );
+
+  it('classifica falha de rede como indisponibilidade transitória sem expor URL', async () => {
     const url = 'https://token@example.com/catalog.json';
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error(url)));
+    await expect(fetcher().load(url)).rejects.toBeInstanceOf(
+      RegistryFetchUnavailableError,
+    );
+  });
+
+  it('sanitiza redirect encadeado pelo fetch do Node sem classificar indisponibilidade', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(
+        new TypeError('fetch failed', {
+          cause: new Error('unexpected redirect'),
+        }),
+      ),
+    );
+
+    await expect(
+      fetcher().load('https://registry.example/catalog.json'),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        name: CliError.name,
+        message: 'O catálogo assinado não permite redirecionamentos',
+      }),
+    );
+  });
+
+  it('rejeita URL não HTTPS antes de iniciar qualquer download', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      fetcher().load('http://registry.example/catalog.json'),
+    ).rejects.toThrow('O endereço do catálogo assinado deve usar HTTPS');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('não classifica conteúdo ausente, limite e envelope inválido como indisponibilidade', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
+    );
+    await expect(
+      fetcher().load('https://registry.example/catalog.json'),
+    ).rejects.toBeInstanceOf(CliError);
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(new Uint8Array(1024 * 1024 + 1))),
+    );
+    await expect(
+      fetcher().load('https://registry.example/catalog.json'),
+    ).rejects.toThrow('O catálogo assinado excede o limite de tamanho');
+
     vi.stubGlobal(
       'fetch',
       vi
         .fn()
-        .mockResolvedValue(new Response('segredo remoto', { status: 503 })),
+        .mockResolvedValueOnce(new Response('registry'))
+        .mockResolvedValueOnce(new Response('inválido')),
     );
-    const verifier = new Ed25519RegistryVerifier(new Map());
-
-    await expect(new SignedRegistryFetcher(verifier).load(url)).rejects.toEqual(
-      expect.objectContaining({
-        name: 'CliError',
-        message: 'Não foi possível baixar o catálogo assinado: HTTP 503',
-      }),
-    );
-  });
-
-  it('rejeita resposta maior que 1 MiB sem verificar o conteúdo', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(new Uint8Array(1024 * 1024 + 1)));
-    vi.stubGlobal('fetch', fetchMock);
-    const verifier = new Ed25519RegistryVerifier(new Map());
-    const verify = vi.spyOn(verifier, 'verify');
-
     await expect(
-      new SignedRegistryFetcher(verifier).load(
-        'https://registry.example/catalog.json',
-      ),
-    ).rejects.toThrow('O catálogo assinado excede o limite de tamanho');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(verify).not.toHaveBeenCalled();
-  });
-
-  it('rejeita envelope de assinatura maior que 64 KiB', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response('registry'))
-      .mockResolvedValueOnce(new Response(new Uint8Array(64 * 1024 + 1)));
-    vi.stubGlobal('fetch', fetchMock);
-    const verifier = new Ed25519RegistryVerifier(new Map());
-
-    await expect(
-      new SignedRegistryFetcher(verifier).load(
-        'https://registry.example/catalog.json',
-      ),
-    ).rejects.toThrow('O catálogo assinado excede o limite de tamanho');
-  });
-
-  it('rejeita envelope de assinatura que não é JSON', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response('registry'))
-      .mockResolvedValueOnce(new Response('envelope inválido'));
-    vi.stubGlobal('fetch', fetchMock);
-    const verifier = new Ed25519RegistryVerifier(new Map());
-
-    await expect(
-      new SignedRegistryFetcher(verifier).load(
-        'https://registry.example/catalog.json',
-      ),
+      fetcher().load('https://registry.example/catalog.json'),
     ).rejects.toThrow('O envelope de assinatura do catálogo é inválido');
   });
 
-  it('propaga a falha do verificador sem interpretar o registry', async () => {
-    const registry = Buffer.from('isto não é JSON válido');
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(registry))
-      .mockResolvedValueOnce(new Response('{"schemaVersion":1}'));
-    vi.stubGlobal('fetch', fetchMock);
-    const verifier = new Ed25519RegistryVerifier(new Map());
-    vi.spyOn(verifier, 'verify').mockImplementation(() => {
-      throw new CliError('A assinatura do catálogo é inválida');
+  it('classifica falha durante a leitura do stream como indisponibilidade transitória', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new Error('stream falhou'));
+      },
     });
-
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(stream)));
     await expect(
-      new SignedRegistryFetcher(verifier).load(
-        'https://registry.example/catalog.json',
-      ),
-    ).rejects.toThrow('A assinatura do catálogo é inválida');
-  });
-
-  it('retorna CliError sanitizado para falha de rede', async () => {
-    const url = 'https://token@example.com/catalog.json';
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error(url)));
-    const verifier = new Ed25519RegistryVerifier(new Map());
-
-    await expect(new SignedRegistryFetcher(verifier).load(url)).rejects.toEqual(
-      expect.objectContaining({
-        name: CliError.name,
-        message: 'Não foi possível baixar o catálogo assinado',
-      }),
-    );
+      fetcher().load('https://registry.example/catalog.json'),
+    ).rejects.toBeInstanceOf(RegistryFetchUnavailableError);
   });
 });

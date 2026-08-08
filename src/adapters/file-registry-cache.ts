@@ -37,6 +37,12 @@ interface PersistedRegistryCacheEntry {
 interface PersistedRegistryCacheState {
   version: 1;
   highWaterRevision: number;
+  snapshot: RegistryCacheEntry;
+}
+
+interface SerializedRegistryCacheState {
+  version: 1;
+  highWaterRevision: number;
   snapshot: PersistedRegistryCacheEntry;
 }
 
@@ -49,6 +55,15 @@ export class FileRegistryCache implements RegistryCache {
     return this.serialize(async () => {
       const state = await this.readState(this.pathFor(key));
       return state?.highWaterRevision;
+    });
+  }
+
+  async readSnapshot(
+    key: RegistryCacheKey,
+  ): Promise<RegistryCacheEntry | undefined> {
+    return this.serialize(async () => {
+      const state = await this.readState(this.pathFor(key));
+      return state?.snapshot;
     });
   }
 
@@ -73,7 +88,7 @@ export class FileRegistryCache implements RegistryCache {
             state?.highWaterRevision ?? entry.revision,
             entry.revision,
           ),
-          snapshot: serializeEntry(entry),
+          snapshot: entry,
         };
         await this.writeState(path, nextState);
 
@@ -181,11 +196,18 @@ export class FileRegistryCache implements RegistryCache {
     try {
       const temporaryPath = `${path}.${randomUUID()}.tmp`;
       try {
-        await writeFile(temporaryPath, JSON.stringify(state), {
-          encoding: 'utf8',
-          mode: cacheFileMode,
-          flag: 'wx',
-        });
+        await writeFile(
+          temporaryPath,
+          JSON.stringify({
+            ...state,
+            snapshot: serializeEntry(state.snapshot),
+          } satisfies SerializedRegistryCacheState),
+          {
+            encoding: 'utf8',
+            mode: cacheFileMode,
+            flag: 'wx',
+          },
+        );
         await chmod(temporaryPath, cacheFileMode);
         await rename(temporaryPath, path);
         await chmod(path, cacheFileMode);
@@ -240,7 +262,7 @@ function parseState(serialized: string): PersistedRegistryCacheState {
     !isIsoDate(verifiedAt) ||
     !isIsoDate(expiresAt) ||
     !isRevision(revision) ||
-    revision > highWaterRevision
+    revision !== highWaterRevision
   ) {
     throw new Error();
   }
@@ -249,11 +271,13 @@ function parseState(serialized: string): PersistedRegistryCacheState {
     version: 1,
     highWaterRevision,
     snapshot: {
-      payload,
-      signatureEnvelope,
+      payload: new Uint8Array(Buffer.from(payload, 'base64')),
+      signatureEnvelope: new Uint8Array(
+        Buffer.from(signatureEnvelope, 'base64'),
+      ),
       signatureUrl,
-      verifiedAt,
-      expiresAt,
+      verifiedAt: new Date(verifiedAt),
+      expiresAt: new Date(expiresAt),
       revision,
     },
   };

@@ -9,3 +9,7 @@ export interface RegistrySignatureEnvelope {
   payloadSha256: string;
   signatures: RegistrySignature[];
 }
+
+export interface RegistrySignatureVerifier {
+  verify(payload: Uint8Array, envelope: unknown): void;
+}

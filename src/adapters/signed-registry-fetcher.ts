@@ -1,16 +1,17 @@
 import { CliError } from '../application/cli-error.js';
-import type {
-  VerifiedRegistry,
-  VerifiedRegistryFetcher,
+import type { RegistrySignatureVerifier } from '../contracts/registry-signature.types.js';
+import {
+  RegistryFetchUnavailableError,
+  type VerifiedRegistry,
+  type VerifiedRegistryFetcher,
 } from '../contracts/verified-registry-fetcher.port.js';
-import type { Ed25519RegistryVerifier } from './ed25519-registry-verifier.js';
 import { fetchWithTimeout } from './fetch-with-timeout.js';
 
 const maximumRegistryBytes = 1024 * 1024;
 const maximumSignatureEnvelopeBytes = 64 * 1024;
 
 export class SignedRegistryFetcher implements VerifiedRegistryFetcher {
-  constructor(private readonly verifier: Ed25519RegistryVerifier) {}
+  constructor(private readonly verifier: RegistrySignatureVerifier) {}
 
   async load(
     registryUrl: string,
@@ -43,11 +44,23 @@ async function downloadBytes(
 
   try {
     response = await fetchWithTimeout(url, { redirect: 'error' });
-  } catch {
-    throw new CliError('Não foi possível baixar o catálogo assinado');
+  } catch (error) {
+    if (isRedirectFailure(error)) {
+      throw new CliError('O catálogo assinado não permite redirecionamentos');
+    }
+
+    throw new RegistryFetchUnavailableError();
   }
 
   if (!response.ok) {
+    if (
+      response.status === 408 ||
+      response.status === 429 ||
+      response.status >= 500
+    ) {
+      throw new RegistryFetchUnavailableError();
+    }
+
     throw new CliError(
       `Não foi possível baixar o catálogo assinado: HTTP ${response.status}`,
     );
@@ -60,7 +73,7 @@ async function downloadBytes(
       throw error;
     }
 
-    throw new CliError('Não foi possível ler o catálogo assinado');
+    throw new RegistryFetchUnavailableError();
   }
 }
 
@@ -121,4 +134,31 @@ function parseSignatureEnvelope(bytes: Uint8Array): unknown {
   } catch {
     throw new CliError('O envelope de assinatura do catálogo é inválido');
   }
+}
+
+function isRedirectFailure(error: unknown): boolean {
+  const visited = new Set<object>();
+  let current = error;
+
+  while (typeof current === 'object' && current !== null) {
+    if (visited.has(current)) {
+      return false;
+    }
+
+    visited.add(current);
+    if (
+      current instanceof Error &&
+      current.message.toLowerCase().includes('redirect')
+    ) {
+      return true;
+    }
+
+    try {
+      current = Reflect.get(current, 'cause');
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
