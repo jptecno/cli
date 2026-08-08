@@ -1,5 +1,8 @@
 import { CliError } from '../application/cli-error.js';
-import type { VerifiedRegistryFetcher } from '../contracts/verified-registry-fetcher.port.js';
+import type {
+  VerifiedRegistry,
+  VerifiedRegistryFetcher,
+} from '../contracts/verified-registry-fetcher.port.js';
 import type { Ed25519RegistryVerifier } from './ed25519-registry-verifier.js';
 import { fetchWithTimeout } from './fetch-with-timeout.js';
 
@@ -12,7 +15,7 @@ export class SignedRegistryFetcher implements VerifiedRegistryFetcher {
   async load(
     registryUrl: string,
     signatureUrl: string = `${registryUrl}.sig`,
-  ): Promise<Uint8Array> {
+  ): Promise<VerifiedRegistry> {
     validateHttpsUrl(registryUrl);
     validateHttpsUrl(signatureUrl);
 
@@ -23,7 +26,12 @@ export class SignedRegistryFetcher implements VerifiedRegistryFetcher {
     );
 
     this.verifier.verify(registry, parseSignatureEnvelope(envelopeBytes));
-    return registry;
+
+    return {
+      payload: registry,
+      signatureEnvelope: envelopeBytes,
+      signatureUrl,
+    };
   }
 }
 

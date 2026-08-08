@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 describe('SignedRegistryFetcher', () => {
-  it('baixa registry e assinatura padrão em ordem, verifica os bytes e os retorna', async () => {
+  it('baixa registry e assinatura padrão em ordem, verifica os bytes e retorna ambos sem alterá-los', async () => {
     const registry = Buffer.from('{conteúdo que não é JSON}');
     const fetchMock = vi
       .fn()
@@ -23,7 +23,11 @@ describe('SignedRegistryFetcher', () => {
       'https://registry.example/catalog.json',
     );
 
-    expect(result).toEqual(new Uint8Array(registry));
+    expect(result).toEqual({
+      payload: new Uint8Array(registry),
+      signatureEnvelope: new TextEncoder().encode('{}'),
+      signatureUrl: 'https://registry.example/catalog.json.sig',
+    });
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       'https://registry.example/catalog.json',
