@@ -25,6 +25,7 @@ export interface RegistryCacheCommitResult {
 
 export interface RegistryCache {
   readHighWater(key: RegistryCacheKey): Promise<number | undefined>;
+  readSnapshot(key: RegistryCacheKey): Promise<RegistryCacheEntry | undefined>;
   commit(
     key: RegistryCacheKey,
     entry: RegistryCacheEntry,

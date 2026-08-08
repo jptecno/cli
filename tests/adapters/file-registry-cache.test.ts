@@ -108,9 +108,13 @@ describe('FileRegistryCache', () => {
         revision: 4,
       },
     });
+    const restored = await new FileRegistryCache(directory).readSnapshot(
+      cacheKey,
+    );
     expect(await new FileRegistryCache(directory).readHighWater(cacheKey)).toBe(
       4,
     );
+    expect(restored).toEqual(entry());
   });
 
   it('mantém o high-water monotônico para commits concorrentes', async () => {
@@ -188,6 +192,31 @@ describe('FileRegistryCache', () => {
 
     await expect(
       new FileRegistryCache(directory).readHighWater(cacheKey),
+    ).rejects.toThrow('O estado do cache do catálogo confiável é inválido');
+  });
+
+  it('não desserializa snapshot quando revision diverge do high-water', async () => {
+    const directory = await cacheDirectory();
+    const cacheKey = key();
+    await writeFile(
+      cacheFile(directory, cacheKey),
+      JSON.stringify({
+        version: 1,
+        highWaterRevision: 5,
+        snapshot: {
+          payload: 'eyJzY2hlbWFWZXJzaW9uIjoyfQ==',
+          signatureEnvelope: 'eyJzaWduYXR1cmUiOiJhYmMifQ==',
+          signatureUrl: 'https://registry.example/catalog.json.sig',
+          verifiedAt: '2026-08-08T00:00:00.000Z',
+          expiresAt: '2026-08-15T00:00:00.000Z',
+          revision: 4,
+        },
+      }),
+      'utf8',
+    );
+
+    await expect(
+      new FileRegistryCache(directory).readSnapshot(cacheKey),
     ).rejects.toThrow('O estado do cache do catálogo confiável é inválido');
   });
 
