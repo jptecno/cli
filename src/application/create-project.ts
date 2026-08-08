@@ -56,6 +56,14 @@ export async function createProject(
     throw new CliError(`Template não encontrado: ${options.templateId}`);
   }
 
+  return createProjectFromTemplate(template, options, dependencies);
+}
+
+export async function createProjectFromTemplate(
+  template: TemplateDefinition,
+  options: CreateProjectOptions,
+  dependencies: CreateProjectDependencies,
+): Promise<CreateProjectResult> {
   const destinationWasCreated = await ensureDestinationIsEmpty(
     options.destination,
   );
