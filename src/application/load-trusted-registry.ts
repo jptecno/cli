@@ -1,3 +1,8 @@
+import {
+  type RegistryCache,
+  RegistryCacheConcurrencyError,
+  type RegistryCacheKey,
+} from '../contracts/registry-cache.port.js';
 import type {
   RegistryContext,
   TemplateRegistryV2,
@@ -5,28 +10,73 @@ import type {
 import type { VerifiedRegistryFetcher } from '../contracts/verified-registry-fetcher.port.js';
 import { CliError } from './cli-error.js';
 import { parseTemplateRegistryV2 } from './parse-template-registry-v2.js';
+import { createRegistryCacheEntry } from './registry-cache-policy.js';
 
 export interface LoadTrustedRegistryOptions {
   registryUrl: string;
   signatureUrl?: string;
+  trustFingerprint: string;
   context?: RegistryContext;
 }
 
 export interface LoadTrustedRegistryDependencies {
   fetcher: VerifiedRegistryFetcher;
+  cache: RegistryCache;
+  now?: () => Date;
 }
 
 export async function loadTrustedRegistry(
   options: LoadTrustedRegistryOptions,
   dependencies: LoadTrustedRegistryDependencies,
 ): Promise<TemplateRegistryV2> {
-  const bytes = await dependencies.fetcher.load(
+  const fetchedRegistry = await dependencies.fetcher.load(
     options.registryUrl,
     options.signatureUrl,
   );
-  const value = parseJson(bytes);
+  const value = parseJson(fetchedRegistry.payload);
+  const registry = parseTemplateRegistryV2(value, options.context);
+  const key: RegistryCacheKey = {
+    registryUrl: options.registryUrl,
+    trustFingerprint: options.trustFingerprint,
+  };
+  const highWaterRevision = await dependencies.cache.readHighWater(key);
 
-  return parseTemplateRegistryV2(value, options.context);
+  if (
+    highWaterRevision !== undefined &&
+    registry.revision < highWaterRevision
+  ) {
+    throw new CliError(
+      'O catálogo verificado possui revisão inferior à já confiada',
+    );
+  }
+
+  const entry = createRegistryCacheEntry(
+    fetchedRegistry,
+    registry.revision,
+    (dependencies.now ?? (() => new Date()))(),
+  );
+
+  let cacheCommitResult: Awaited<ReturnType<RegistryCache['commit']>>;
+
+  try {
+    cacheCommitResult = await dependencies.cache.commit(key, entry);
+  } catch (error) {
+    if (error instanceof RegistryCacheConcurrencyError) {
+      throw new CliError(
+        'Não foi possível sincronizar o cache do catálogo confiável',
+      );
+    }
+
+    return registry;
+  }
+
+  if (!cacheCommitResult.accepted) {
+    throw new CliError(
+      'O catálogo verificado possui revisão inferior à já confiada',
+    );
+  }
+
+  return registry;
 }
 
 function parseJson(bytes: Uint8Array): unknown {
