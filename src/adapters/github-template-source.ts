@@ -41,7 +41,10 @@ export class GitHubTemplateSource implements TemplateSource {
 
     try {
       const response = await fetchWithTimeout(
-        createGitHubArchiveUrl(template.repository, template.ref),
+        createGitHubArchiveUrl(
+          template.repository,
+          template.commit ?? template.ref,
+        ),
       );
 
       if (!response.ok) {
