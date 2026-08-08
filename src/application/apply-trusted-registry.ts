@@ -5,11 +5,16 @@ import type {
   TemplateVersion,
 } from '../contracts/template-registry-v2.types.js';
 import {
+  authorizeStaleRegistryUse,
+  authorizeStaleTemplateCreation,
+} from './authorize-stale-registry.js';
+import {
   type CreateProjectDependencies,
   type CreateProjectOptions,
   type CreateProjectResult,
   createProjectFromTemplate,
 } from './create-project.js';
+import type { LoadedTrustedRegistry } from './load-trusted-registry.js';
 import {
   parseTemplateSelector,
   resolveTemplateVersion,
@@ -18,6 +23,8 @@ import {
 export interface ApplyTrustedRegistryOptions
   extends Omit<CreateProjectOptions, 'templateId'> {
   templateId?: string;
+  allowStaleRegistry: boolean;
+  allowStaleTemplateCreation: boolean;
 }
 
 export interface ApplyTrustedRegistryDependencies
@@ -38,21 +45,25 @@ export function projectActiveTemplates(
 }
 
 export async function applyTrustedRegistry(
-  registry: TemplateRegistryV2,
+  loadedRegistry: LoadedTrustedRegistry,
   options: ApplyTrustedRegistryOptions,
   dependencies: ApplyTrustedRegistryDependencies,
 ): Promise<CreateProjectResult> {
-  const templates = projectActiveTemplates(registry);
+  await authorizeStaleRegistryUse(loadedRegistry, options, dependencies);
+
+  const templates = projectActiveTemplates(loadedRegistry.registry);
   const templateId =
     options.templateId ?? (await dependencies.prompt.selectTemplate(templates));
   const resolved = resolveTemplateVersion(
-    registry,
+    loadedRegistry.registry,
     parseTemplateSelector(templateId),
   );
   const template = toMaterializableTemplate(
     resolved.template,
     resolved.version,
   );
+
+  await authorizeStaleTemplateCreation(loadedRegistry, options, dependencies);
 
   return createProjectFromTemplate(
     template,
