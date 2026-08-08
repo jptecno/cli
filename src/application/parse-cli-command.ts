@@ -8,6 +8,9 @@ export interface InitCommandOptions {
   isCustomRegistry: boolean;
   values: Record<string, string>;
   initializeGit: boolean;
+  install: boolean;
+  noInstall: boolean;
+  validate: boolean;
 }
 
 export interface TemplateListCommandOptions {
@@ -74,6 +77,9 @@ export function buildHelpText(): string {
     '  --set chave=valor     Define uma variável do template. Pode ser repetido.',
     '  --registry <url>      Sobrescreve a URL do registry (exige https).',
     '  --no-git              Não executa git init.',
+    '  --install             Executa somente npm install após criar o projeto.',
+    '  --no-install          Não executa npm install.',
+    '  --validate            Executa as validações declaradas pelo template.',
     '  --help, -h            Mostra esta ajuda.',
     '  --version, -v         Mostra a versão instalada.',
     '',
@@ -126,6 +132,9 @@ function parseInitCommand(arguments_: string[]): InitCommandOptions {
     isCustomRegistry: false,
     values: Object.create(null) as Record<string, string>,
     initializeGit: true,
+    install: false,
+    noInstall: false,
+    validate: false,
   };
 
   for (let index = 2; index < arguments_.length; index += 1) {
@@ -133,6 +142,21 @@ function parseInitCommand(arguments_: string[]): InitCommandOptions {
 
     if (argument === '--no-git') {
       options.initializeGit = false;
+      continue;
+    }
+
+    if (argument === '--install') {
+      options.install = true;
+      continue;
+    }
+
+    if (argument === '--no-install') {
+      options.noInstall = true;
+      continue;
+    }
+
+    if (argument === '--validate') {
+      options.validate = true;
       continue;
     }
 
@@ -171,6 +195,18 @@ function parseInitCommand(arguments_: string[]): InitCommandOptions {
     }
 
     index += 1;
+  }
+
+  if (options.install && options.noInstall) {
+    throw new CliError(
+      'As opções --install e --no-install não podem ser usadas juntas',
+    );
+  }
+
+  if (options.install && options.validate) {
+    throw new CliError(
+      'As opções --install e --validate não podem ser usadas juntas',
+    );
   }
 
   return options;

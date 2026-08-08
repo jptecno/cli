@@ -101,7 +101,8 @@ describe('createProject', () => {
       },
     );
 
-    expect(template.id).toBe('api-nodejs-typescript');
+    expect(template.template.id).toBe('api-nodejs-typescript');
+    expect(template.toolchain).toEqual(validToolchain);
     await expect(
       readFile(join(destination, 'package.json'), 'utf8'),
     ).resolves.toContain('billing-api');
@@ -285,10 +286,12 @@ describe('createProject', () => {
         },
         commandExecutor: createCommandExecutor(),
         prompt: {
+          isInteractive: () => true,
           ask: async (question) => {
             questions.push(question);
             return 'valor-seguro';
           },
+          confirm: async () => true,
           selectTemplate: async () => 'api-nodejs-typescript',
         },
       },
@@ -650,6 +653,7 @@ describe('createProject', () => {
         templateSource: createTemplateSource(),
         commandExecutor: createCommandExecutor(),
         prompt: {
+          isInteractive: () => true,
           ask: async (_question, defaultValue) => {
             callCount += 1;
 
@@ -659,12 +663,13 @@ describe('createProject', () => {
 
             return callCount === 3 ? 'billing-api' : (defaultValue ?? '');
           },
+          confirm: async () => true,
           selectTemplate: async () => 'api-nodejs-typescript',
         },
       },
     );
 
-    expect(template.id).toBe('api-nodejs-typescript');
+    expect(template.template.id).toBe('api-nodejs-typescript');
     expect(callCount).toBe(4);
     await expect(
       readFile(join(destination, 'package.json'), 'utf8'),
@@ -688,10 +693,12 @@ describe('createProject', () => {
           templateSource: createTemplateSource(),
           commandExecutor: createCommandExecutor(),
           prompt: {
+            isInteractive: () => true,
             ask: async () => {
               callCount += 1;
               return '';
             },
+            confirm: async () => true,
             selectTemplate: async () => 'api-nodejs-typescript',
           },
         },
@@ -718,10 +725,12 @@ describe('createProject', () => {
           templateSource: createTemplateSource(),
           commandExecutor: createCommandExecutor(),
           prompt: {
+            isInteractive: () => true,
             ask: async (question) => {
               askCalls.push(question);
               return '';
             },
+            confirm: async () => true,
             selectTemplate: async () => 'api-nodejs-typescript',
           },
         },
@@ -907,7 +916,9 @@ async function renderPackageJsonWithVariableOrder(
 
 function createPrompt(): Prompt {
   return {
+    isInteractive: () => false,
     ask: async (_question, defaultValue) => defaultValue ?? '',
+    confirm: async () => true,
     selectTemplate: async () => 'api-nodejs-typescript',
   };
 }

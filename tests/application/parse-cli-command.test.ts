@@ -19,6 +19,8 @@ describe('parseCliCommand', () => {
         '--set',
         'description=API de faturamento',
         '--no-git',
+        '--no-install',
+        '--validate',
       ]),
     ).toMatchObject({
       kind: 'init',
@@ -29,6 +31,9 @@ describe('parseCliCommand', () => {
         description: 'API de faturamento',
       },
       initializeGit: false,
+      install: false,
+      noInstall: true,
+      validate: true,
     });
   });
 
@@ -69,7 +74,6 @@ describe('parseCliCommand', () => {
     ['init'],
     ['init', 'billing-api', '--set', 'projectName'],
     ['init', 'billing-api', '--unknown', 'value'],
-    ['init', 'billing-api', '--no-install'],
     ['init', 'billing-api', '--no-validate'],
     ['template'],
     ['template', 'list', '--registry'],
@@ -112,7 +116,9 @@ describe('parseCliCommand', () => {
       expect(helpText).toContain('--set chave=valor');
       expect(helpText).toContain('--registry <url>');
       expect(helpText).toContain('--no-git');
-      expect(helpText).not.toContain('--no-install');
+      expect(helpText).toContain('--install');
+      expect(helpText).toContain('--no-install');
+      expect(helpText).toContain('--validate');
       expect(helpText).not.toContain('--no-validate');
       expect(helpText).toContain('--help');
       expect(helpText).toContain('--version');
@@ -123,6 +129,15 @@ describe('parseCliCommand', () => {
         'jp --help',
       );
     });
+  });
+
+  it('rejeita combinações contraditórias de flags de toolchain', () => {
+    expect(() =>
+      parseCliCommand(['init', 'billing-api', '--install', '--no-install']),
+    ).toThrow('As opções --install e --no-install não podem ser usadas juntas');
+    expect(() =>
+      parseCliCommand(['init', 'billing-api', '--install', '--validate']),
+    ).toThrow('As opções --install e --validate não podem ser usadas juntas');
   });
 
   describe('validação de flags que consomem valores', () => {

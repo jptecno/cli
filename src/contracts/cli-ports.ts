@@ -16,6 +16,8 @@ export interface CommandExecutor {
 }
 
 export interface Prompt {
+  isInteractive(): boolean;
   selectTemplate(templates: TemplateDefinition[]): Promise<string>;
   ask(question: string, defaultValue?: string): Promise<string>;
+  confirm(question: string, defaultValue: boolean): Promise<boolean>;
 }

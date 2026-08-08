@@ -13,6 +13,7 @@ import type {
   Prompt,
   TemplateSource,
 } from '../contracts/cli-ports.js';
+import type { NodeToolchain } from '../contracts/node-toolchain.types.js';
 import type {
   TemplateManifest,
   TemplateVariable,
@@ -31,6 +32,11 @@ export interface CreateProjectOptions {
   initializeGit: boolean;
 }
 
+export interface CreateProjectResult {
+  template: TemplateDefinition;
+  toolchain: NodeToolchain;
+}
+
 export interface CreateProjectDependencies {
   templateSource: TemplateSource;
   commandExecutor: CommandExecutor;
@@ -41,7 +47,7 @@ export async function createProject(
   registry: TemplateRegistry,
   options: CreateProjectOptions,
   dependencies: CreateProjectDependencies,
-): Promise<TemplateDefinition> {
+): Promise<CreateProjectResult> {
   const template = registry.templates.find(
     (item) => item.id === options.templateId,
   );
@@ -53,6 +59,8 @@ export async function createProject(
   const destinationWasCreated = await ensureDestinationIsEmpty(
     options.destination,
   );
+
+  let toolchain: NodeToolchain;
 
   try {
     await dependencies.templateSource.materialize(
@@ -82,6 +90,7 @@ export async function createProject(
       dependencies.prompt,
     );
     await renderTemplateFiles(options.destination, manifest, values);
+    toolchain = manifest.toolchain;
     await removeTemplateMetadata(options.destination);
   } catch (error) {
     await rollbackDestination(options.destination, destinationWasCreated);
@@ -96,7 +105,7 @@ export async function createProject(
     );
   }
 
-  return template;
+  return { template, toolchain };
 }
 
 /**
