@@ -32,10 +32,10 @@ export interface NodeToolchain {
   steps: Partial<Record<ToolchainStepName, ToolchainStep>>;
 }
 
-export interface ToolInspection {
-  found: boolean;
-  versionOutput?: string;
-}
+export type ToolInspection =
+  | { status: 'available'; versionOutput: string }
+  | { status: 'unavailable' }
+  | { status: 'failed' };
 
 export interface ToolInspector {
   inspect(tool: SupportedTool): Promise<ToolInspection>;
@@ -45,6 +45,7 @@ export type ToolRequirementStatus =
   | 'satisfied'
   | 'unsupported'
   | 'unavailable'
+  | 'inspection-failed'
   | 'invalid-version'
   | 'below-minimum';
 
