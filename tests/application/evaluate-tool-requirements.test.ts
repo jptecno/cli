@@ -5,10 +5,10 @@ import { evaluateToolRequirements } from '../../src/application/evaluate-tool-re
 import type { ToolInspector } from '../../src/application/toolchain.types.js';
 
 function createToolInspector(
-  results: Record<string, { found: boolean; versionOutput?: string }>,
+  results: Record<string, Awaited<ReturnType<ToolInspector['inspect']>>>,
 ): ToolInspector {
   return {
-    inspect: async (tool) => results[tool] ?? { found: false },
+    inspect: async (tool) => results[tool] ?? { status: 'unavailable' },
   };
 }
 
@@ -21,8 +21,8 @@ describe('evaluateToolRequirements', () => {
           { tool: 'npm', minimumVersion: '10.5' },
         ],
         createToolInspector({
-          node: { found: true, versionOutput: 'v24.0.0\n' },
-          npm: { found: true, versionOutput: '10.5.1\n' },
+          node: { status: 'available', versionOutput: 'v24.0.0\n' },
+          npm: { status: 'available', versionOutput: '10.5.1\n' },
         }),
       ),
     ).resolves.toEqual([
@@ -31,7 +31,7 @@ describe('evaluateToolRequirements', () => {
     ]);
   });
 
-  it('distingue ferramenta ausente, saída inválida e versão insuficiente', async () => {
+  it('distingue inspeção indisponível, falha, saída inválida e versão insuficiente', async () => {
     await expect(
       evaluateToolRequirements(
         [
@@ -40,14 +40,27 @@ describe('evaluateToolRequirements', () => {
           { tool: 'node', minimumVersion: '25' },
         ],
         createToolInspector({
-          node: { found: true, versionOutput: 'v24.0.0' },
-          npm: { found: true, versionOutput: 'npm versão desconhecida' },
+          node: { status: 'available', versionOutput: 'v24.0.0' },
+          npm: { status: 'failed' },
         }),
       ),
     ).resolves.toEqual([
       { tool: 'node', minimumVersion: '24', status: 'satisfied' },
-      { tool: 'npm', minimumVersion: '10', status: 'invalid-version' },
+      { tool: 'npm', minimumVersion: '10', status: 'inspection-failed' },
       { tool: 'node', minimumVersion: '25', status: 'below-minimum' },
+    ]);
+  });
+
+  it('rejeita saída de versão em múltiplas linhas', async () => {
+    await expect(
+      evaluateToolRequirements(
+        [{ tool: 'npm', minimumVersion: '10' }],
+        createToolInspector({
+          npm: { status: 'available', versionOutput: '10.5.1\n10.5.2' },
+        }),
+      ),
+    ).resolves.toEqual([
+      { tool: 'npm', minimumVersion: '10', status: 'invalid-version' },
     ]);
   });
 
@@ -56,7 +69,7 @@ describe('evaluateToolRequirements', () => {
       evaluateToolRequirements(
         [{ tool: 'node', minimumVersion: '24.0.0' }],
         createToolInspector({
-          node: { found: true, versionOutput: 'v24.0.0-rc.1' },
+          node: { status: 'available', versionOutput: 'v24.0.0-rc.1' },
         }),
       ),
     ).resolves.toEqual([
@@ -68,7 +81,7 @@ describe('evaluateToolRequirements', () => {
     await expect(
       evaluateToolRequirements(
         [{ tool: 'npm', minimumVersion: '10' }],
-        createToolInspector({ npm: { found: false } }),
+        createToolInspector({ npm: { status: 'unavailable' } }),
       ),
     ).resolves.toEqual([
       { tool: 'npm', minimumVersion: '10', status: 'unavailable' },

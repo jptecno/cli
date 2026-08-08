@@ -16,7 +16,7 @@ function buildToolchain(steps: NodeToolchain['steps']): NodeToolchain {
 }
 
 const installedNpm: ToolInspector = {
-  inspect: async () => ({ found: true, versionOutput: '10.0.0' }),
+  inspect: async () => ({ status: 'available', versionOutput: '10.0.0' }),
 };
 
 describe('executeToolchainPlan', () => {
@@ -132,7 +132,7 @@ describe('executeToolchainPlan', () => {
       }),
       { cwd: '/project', requestedSteps: ['lint'] },
       {
-        toolInspector: { inspect: async () => ({ found: false }) },
+        toolInspector: { inspect: async () => ({ status: 'unavailable' }) },
         shouldRun: async () => false,
         run,
       },

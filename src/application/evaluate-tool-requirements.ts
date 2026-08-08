@@ -36,8 +36,12 @@ function evaluateInspection(
   minimumVersion: string,
   inspection: ToolInspection,
 ): ToolRequirementResult['status'] {
-  if (!inspection.found) {
+  if (inspection.status === 'unavailable') {
     return 'unavailable';
+  }
+
+  if (inspection.status === 'failed') {
+    return 'inspection-failed';
   }
 
   const installedVersion = parseVersion(inspection.versionOutput);
