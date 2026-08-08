@@ -34,8 +34,6 @@ jp template list [--registry <url>]
 --set chave=valor     Define uma variável do template. Pode ser repetido.
 --registry <url>      Sobrescreve a URL do registry (exige https).
 --no-git              Não executa git init.
---no-install          Não executa npm install nem npm run check.
---no-validate         Não executa npm run check.
 --help, -h            Mostra a ajuda e sai com código 0.
 --version, -v         Mostra a versão instalada e sai com código 0.
 ```

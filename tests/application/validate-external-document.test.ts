@@ -41,7 +41,10 @@ function validManifest(): unknown {
     render: { include: ['src/index.ts'] },
     toolchain: {
       ecosystem: 'node',
-      requirements: [{ tool: 'node', minimumVersion: '24.0.0' }],
+      requirements: [
+        { tool: 'node', minimumVersion: '24.0.0' },
+        { tool: 'npm', minimumVersion: '11.0.0' },
+      ],
       steps: {
         test: {
           command: 'npm',
