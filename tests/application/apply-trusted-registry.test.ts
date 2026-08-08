@@ -80,6 +80,7 @@ describe('projectActiveTemplates', () => {
         repository: 'jptecno/template-api',
         version: 'v2.0.0',
         ref: 'v2.0.0',
+        commit: 'a'.repeat(40),
       },
     ]);
   });
@@ -138,13 +139,19 @@ describe('applyTrustedRegistry', () => {
 
     expect(selectedTemplates).toEqual([['api']]);
     expect(materialize).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'api', version: 'v2.0.0', ref: 'v2.0.0' }),
+      expect.objectContaining({
+        id: 'api',
+        version: 'v2.0.0',
+        ref: 'v2.0.0',
+        commit: 'a'.repeat(40),
+      }),
       destination,
     );
     expect(result.template).toMatchObject({
       id: 'api',
       version: 'v2.0.0',
       ref: 'v2.0.0',
+      commit: 'a'.repeat(40),
     });
   });
 

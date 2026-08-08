@@ -72,5 +72,6 @@ function toMaterializableTemplate(
     repository: template.repository,
     version: version.version,
     ref: version.ref,
+    commit: version.commit,
   };
 }
