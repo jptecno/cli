@@ -91,14 +91,7 @@ describe('runCli', () => {
     const destination = await createTemporaryDirectory();
     const logs: string[] = [];
     const exitCode = await runCli(
-      [
-        'init',
-        destination,
-        '--template',
-        'api-nodejs-typescript',
-        '--no-git',
-        '--no-install',
-      ],
+      ['init', destination, '--template', 'api-nodejs-typescript', '--no-git'],
       createDependencies({
         log: (message) => logs.push(message),
         templateSource: {
@@ -110,12 +103,23 @@ describe('runCli', () => {
                 id: 'api-nodejs-typescript',
                 name: 'API Node.js + TypeScript',
                 description: 'Template de API',
+                repository: 'jptecno/template-api-nodejs-typescript',
                 variables: [],
                 render: { include: [] },
-                postCreate: {
-                  packageManager: 'npm',
-                  installCommand: 'npm install',
-                  validateCommand: 'npm run check',
+                toolchain: {
+                  ecosystem: 'node',
+                  requirements: [
+                    { tool: 'node', minimumVersion: '24.0.0' },
+                    { tool: 'npm', minimumVersion: '11.0.0' },
+                  ],
+                  steps: {
+                    install: {
+                      command: 'npm',
+                      args: ['install'],
+                      dependsOn: [],
+                      recommended: true,
+                    },
+                  },
                 },
               }),
             );

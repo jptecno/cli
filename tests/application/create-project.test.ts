@@ -47,6 +47,22 @@ function getFirstTemplate(): TemplateRegistry['templates'][number] {
   return firstTemplate;
 }
 
+const validToolchain = {
+  ecosystem: 'node',
+  requirements: [
+    { tool: 'node', minimumVersion: '24.0.0' },
+    { tool: 'npm', minimumVersion: '11.0.0' },
+  ],
+  steps: {
+    install: {
+      command: 'npm',
+      args: ['install'],
+      dependsOn: [],
+      recommended: true,
+    },
+  },
+};
+
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -58,7 +74,7 @@ afterEach(async () => {
 });
 
 describe('createProject', () => {
-  it('renderiza o template e executa somente os comandos selecionados', async () => {
+  it('renderiza o template, inicializa somente o git e nunca invoca npm', async () => {
     const destination = await createTemporaryDirectory();
     const commands: Array<{
       command: string;
@@ -73,8 +89,6 @@ describe('createProject', () => {
         templateId: 'api-nodejs-typescript',
         values: { projectName: 'billing-api' },
         initializeGit: true,
-        installDependencies: true,
-        validateProject: true,
       },
       {
         templateSource: createTemplateSource(),
@@ -101,9 +115,105 @@ describe('createProject', () => {
     await expect(access(join(destination, 'TEMPLATE.md'))).rejects.toThrow();
     expect(commands).toEqual([
       { command: 'git', arguments_: ['init'], cwd: destination },
-      { command: 'npm', arguments_: ['install'], cwd: destination },
-      { command: 'npm', arguments_: ['run', 'check'], cwd: destination },
     ]);
+  });
+
+  it('rejeita manifesto de repositório diferente antes de renderizar ou executar comandos', async () => {
+    const destination = await createTemporaryDirectory();
+    const commands: string[] = [];
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: {},
+          initializeGit: true,
+        },
+        {
+          templateSource: {
+            materialize: async (_template, target) => {
+              await writeFile(
+                join(target, 'template.json'),
+                JSON.stringify({
+                  schemaVersion: 1,
+                  id: 'api-nodejs-typescript',
+                  name: 'API Node.js + TypeScript',
+                  description: 'Template de API',
+                  repository: 'jptecno/outro-template',
+                  variables: [],
+                  render: { include: [] },
+                  toolchain: validToolchain,
+                }),
+              );
+            },
+          },
+          commandExecutor: {
+            run: async (command) => {
+              commands.push(command);
+            },
+          },
+          prompt: createPrompt(),
+        },
+      ),
+    ).rejects.toThrow('O manifesto baixado não corresponde ao repositório');
+
+    expect(commands).toEqual([]);
+  });
+
+  it('rejeita manifesto postCreate legado antes de renderizar ou executar comandos', async () => {
+    const destination = await createTemporaryDirectory();
+    const commands: string[] = [];
+
+    await expect(
+      createProject(
+        registry,
+        {
+          destination,
+          templateId: 'api-nodejs-typescript',
+          values: {},
+          initializeGit: true,
+        },
+        {
+          templateSource: {
+            materialize: async (_template, target) => {
+              await Promise.all([
+                writeFile(
+                  join(target, 'template.json'),
+                  JSON.stringify({
+                    schemaVersion: 1,
+                    id: 'api-nodejs-typescript',
+                    name: 'API Node.js + TypeScript',
+                    description: 'Template de API',
+                    variables: [],
+                    render: { include: ['package.json'] },
+                    postCreate: {
+                      packageManager: 'npm',
+                      installCommand: 'npm install',
+                      validateCommand: 'npm run check',
+                    },
+                  }),
+                ),
+                writeFile(
+                  join(target, 'package.json'),
+                  '{"name":"{{projectName}}"}',
+                ),
+              ]);
+            },
+          },
+          commandExecutor: {
+            run: async (command) => {
+              commands.push(command);
+            },
+          },
+          prompt: createPrompt(),
+        },
+      ),
+    ).rejects.toThrow('O manifesto do template possui formato inválido');
+
+    expect(commands).toEqual([]);
+    await expect(readdir(destination)).resolves.toEqual([]);
   });
 
   it('preserva valores com aspas como dados JSON, sem injetar scripts npm', async () => {
@@ -118,8 +228,6 @@ describe('createProject', () => {
         templateId: 'api-nodejs-typescript',
         values: { projectName: 'billing-api', description },
         initializeGit: false,
-        installDependencies: false,
-        validateProject: false,
       },
       {
         templateSource: createTemplateSource(),
@@ -147,8 +255,6 @@ describe('createProject', () => {
         templateId: 'api-nodejs-typescript',
         values: {},
         initializeGit: false,
-        installDependencies: false,
-        validateProject: false,
       },
       {
         templateSource: {
@@ -169,11 +275,8 @@ describe('createProject', () => {
                     },
                   ],
                   render: { include: ['arquivo.txt'] },
-                  postCreate: {
-                    packageManager: 'npm',
-                    installCommand: 'npm install',
-                    validateCommand: 'npm run check',
-                  },
+                  repository: 'jptecno/template-api-nodejs-typescript',
+                  toolchain: validToolchain,
                 }),
               ),
               writeFile(join(target, 'arquivo.txt'), '{{constructor}}'),
@@ -208,8 +311,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: { projectName: 'billing-api' },
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: {
@@ -247,8 +348,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: { projectName: 'billing-api' },
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: {
@@ -284,8 +383,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: { projectName: 'billing-api' },
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: createTemplateSource(),
@@ -313,8 +410,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: { projectName: 'billing-api', ambiente: 'produção' },
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: createTemplateSource(),
@@ -338,8 +433,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: { projectName: 'Billing API' },
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: createTemplateSource(),
@@ -363,8 +456,6 @@ describe('createProject', () => {
           description: '{{naoDeclarada}}',
         },
         initializeGit: false,
-        installDependencies: false,
-        validateProject: false,
       },
       {
         templateSource: createTemplateSource(),
@@ -414,8 +505,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: {},
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: {
@@ -446,8 +535,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: {},
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: {
@@ -481,8 +568,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: { projectName: 'billing-api' },
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: createTemplateSource(),
@@ -515,8 +600,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: {},
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: {
@@ -530,11 +613,8 @@ describe('createProject', () => {
                   description: 'Template de API',
                   variables: [],
                   render: { include: ['cfg/app.json'] },
-                  postCreate: {
-                    packageManager: 'npm',
-                    installCommand: 'npm install',
-                    validateCommand: 'npm run check',
-                  },
+                  repository: 'jptecno/template-api-nodejs-typescript',
+                  toolchain: validToolchain,
                 }),
               );
               await symlink(join(target, '..', 'fora'), join(target, 'cfg'));
@@ -565,8 +645,6 @@ describe('createProject', () => {
         templateId: 'api-nodejs-typescript',
         values: {},
         initializeGit: false,
-        installDependencies: false,
-        validateProject: false,
       },
       {
         templateSource: createTemplateSource(),
@@ -605,8 +683,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: {},
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: createTemplateSource(),
@@ -637,8 +713,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: { projectName: 'Billing API' },
           initializeGit: false,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: createTemplateSource(),
@@ -657,71 +731,7 @@ describe('createProject', () => {
     expect(askCalls).toEqual([]);
   });
 
-  it('preserva o projeto já criado quando "npm run check" falha, e o erro informa que o projeto existe', async () => {
-    const destination = await createTemporaryDirectory();
-
-    await expect(
-      createProject(
-        registry,
-        {
-          destination,
-          templateId: 'api-nodejs-typescript',
-          values: { projectName: 'billing-api' },
-          initializeGit: false,
-          installDependencies: false,
-          validateProject: true,
-        },
-        {
-          templateSource: createTemplateSource(),
-          commandExecutor: createFailingCommandExecutor('npm', [
-            'run',
-            'check',
-          ]),
-          prompt: createPrompt(),
-        },
-      ),
-    ).rejects.toThrow(
-      `O projeto foi criado em ${destination}, mas a etapa "npm run check" falhou`,
-    );
-
-    await expect(access(destination)).resolves.toBeUndefined();
-    await expect(
-      readFile(join(destination, 'package.json'), 'utf8'),
-    ).resolves.toContain('billing-api');
-    await expect(access(join(destination, 'template.json'))).rejects.toThrow();
-  });
-
-  it('preserva o projeto já criado quando "npm install" falha, e o erro informa que o projeto existe', async () => {
-    const destination = await createTemporaryDirectory();
-
-    await expect(
-      createProject(
-        registry,
-        {
-          destination,
-          templateId: 'api-nodejs-typescript',
-          values: { projectName: 'billing-api' },
-          initializeGit: false,
-          installDependencies: true,
-          validateProject: false,
-        },
-        {
-          templateSource: createTemplateSource(),
-          commandExecutor: createFailingCommandExecutor('npm', ['install']),
-          prompt: createPrompt(),
-        },
-      ),
-    ).rejects.toThrow(
-      `O projeto foi criado em ${destination}, mas a etapa "npm install" falhou`,
-    );
-
-    await expect(access(destination)).resolves.toBeUndefined();
-    await expect(
-      readFile(join(destination, 'package.json'), 'utf8'),
-    ).resolves.toContain('billing-api');
-  });
-
-  it('preserva o projeto já criado quando "git init" falha, e o erro informa que o projeto existe', async () => {
+  it('propaga a falha de git init sem executar etapas da toolchain', async () => {
     const destination = await createTemporaryDirectory();
 
     await expect(
@@ -732,8 +742,6 @@ describe('createProject', () => {
           templateId: 'api-nodejs-typescript',
           values: { projectName: 'billing-api' },
           initializeGit: true,
-          installDependencies: false,
-          validateProject: false,
         },
         {
           templateSource: createTemplateSource(),
@@ -741,9 +749,7 @@ describe('createProject', () => {
           prompt: createPrompt(),
         },
       ),
-    ).rejects.toThrow(
-      `O projeto foi criado em ${destination}, mas a etapa "git init" falhou`,
-    );
+    ).rejects.toThrow('Falha ao executar git init: código de saída 1');
 
     await expect(access(destination)).resolves.toBeUndefined();
     await expect(
@@ -785,11 +791,8 @@ function createTemplateSource(): TemplateSource {
                 'README.md',
               ],
             },
-            postCreate: {
-              packageManager: 'npm',
-              installCommand: 'npm install',
-              validateCommand: 'npm run check',
-            },
+            repository: 'jptecno/template-api-nodejs-typescript',
+            toolchain: validToolchain,
           }),
         ),
         writeFile(
@@ -867,8 +870,6 @@ async function renderPackageJsonWithVariableOrder(
       templateId: 'api-nodejs-typescript',
       values,
       initializeGit: false,
-      installDependencies: false,
-      validateProject: false,
     },
     {
       templateSource: {
@@ -885,11 +886,8 @@ async function renderPackageJsonWithVariableOrder(
                   (name) => PACKAGE_JSON_VARIABLE_DEFINITIONS[name],
                 ),
                 render: { include: ['package.json'] },
-                postCreate: {
-                  packageManager: 'npm',
-                  installCommand: 'npm install',
-                  validateCommand: 'npm run check',
-                },
+                repository: 'jptecno/template-api-nodejs-typescript',
+                toolchain: validToolchain,
               }),
             ),
             writeFile(

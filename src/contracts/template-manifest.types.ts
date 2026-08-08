@@ -1,3 +1,5 @@
+import type { NodeToolchain } from './node-toolchain.types.js';
+
 export interface TemplateVariable {
   name: string;
   prompt: string;
@@ -11,13 +13,10 @@ export interface TemplateManifest {
   id: string;
   name: string;
   description: string;
+  repository: string;
   variables: TemplateVariable[];
   render: {
     include: string[];
   };
-  postCreate: {
-    packageManager: 'npm';
-    installCommand: 'npm install';
-    validateCommand: 'npm run check';
-  };
+  toolchain: NodeToolchain;
 }

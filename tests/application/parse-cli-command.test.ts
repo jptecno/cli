@@ -19,8 +19,6 @@ describe('parseCliCommand', () => {
         '--set',
         'description=API de faturamento',
         '--no-git',
-        '--no-install',
-        '--no-validate',
       ]),
     ).toMatchObject({
       kind: 'init',
@@ -31,18 +29,6 @@ describe('parseCliCommand', () => {
         description: 'API de faturamento',
       },
       initializeGit: false,
-      installDependencies: false,
-      validateProject: false,
-    });
-  });
-
-  it('desabilita a validação quando a instalação é desabilitada', () => {
-    expect(
-      parseCliCommand(['init', 'billing-api', '--no-install']),
-    ).toMatchObject({
-      kind: 'init',
-      installDependencies: false,
-      validateProject: false,
     });
   });
 
@@ -83,6 +69,8 @@ describe('parseCliCommand', () => {
     ['init'],
     ['init', 'billing-api', '--set', 'projectName'],
     ['init', 'billing-api', '--unknown', 'value'],
+    ['init', 'billing-api', '--no-install'],
+    ['init', 'billing-api', '--no-validate'],
     ['template'],
     ['template', 'list', '--registry'],
     ['template', 'list', '--unknown'],
@@ -124,8 +112,8 @@ describe('parseCliCommand', () => {
       expect(helpText).toContain('--set chave=valor');
       expect(helpText).toContain('--registry <url>');
       expect(helpText).toContain('--no-git');
-      expect(helpText).toContain('--no-install');
-      expect(helpText).toContain('--no-validate');
+      expect(helpText).not.toContain('--no-install');
+      expect(helpText).not.toContain('--no-validate');
       expect(helpText).toContain('--help');
       expect(helpText).toContain('--version');
     });

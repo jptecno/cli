@@ -7,9 +7,7 @@ export interface InitCommandOptions {
   registryUrl: string;
   isCustomRegistry: boolean;
   values: Record<string, string>;
-  installDependencies: boolean;
   initializeGit: boolean;
-  validateProject: boolean;
 }
 
 export interface TemplateListCommandOptions {
@@ -76,8 +74,6 @@ export function buildHelpText(): string {
     '  --set chave=valor     Define uma variável do template. Pode ser repetido.',
     '  --registry <url>      Sobrescreve a URL do registry (exige https).',
     '  --no-git              Não executa git init.',
-    '  --no-install          Não executa npm install nem npm run check.',
-    '  --no-validate         Não executa npm run check.',
     '  --help, -h            Mostra esta ajuda.',
     '  --version, -v         Mostra a versão instalada.',
     '',
@@ -129,27 +125,14 @@ function parseInitCommand(arguments_: string[]): InitCommandOptions {
     registryUrl: defaultRegistryUrl,
     isCustomRegistry: false,
     values: Object.create(null) as Record<string, string>,
-    installDependencies: true,
     initializeGit: true,
-    validateProject: true,
   };
 
   for (let index = 2; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
 
-    if (argument === '--no-install') {
-      options.installDependencies = false;
-      options.validateProject = false;
-      continue;
-    }
-
     if (argument === '--no-git') {
       options.initializeGit = false;
-      continue;
-    }
-
-    if (argument === '--no-validate') {
-      options.validateProject = false;
       continue;
     }
 
