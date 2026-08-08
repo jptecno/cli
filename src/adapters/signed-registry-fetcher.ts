@@ -1,11 +1,12 @@
 import { CliError } from '../application/cli-error.js';
+import type { VerifiedRegistryFetcher } from '../contracts/verified-registry-fetcher.port.js';
 import type { Ed25519RegistryVerifier } from './ed25519-registry-verifier.js';
 import { fetchWithTimeout } from './fetch-with-timeout.js';
 
 const maximumRegistryBytes = 1024 * 1024;
 const maximumSignatureEnvelopeBytes = 64 * 1024;
 
-export class SignedRegistryFetcher {
+export class SignedRegistryFetcher implements VerifiedRegistryFetcher {
   constructor(private readonly verifier: Ed25519RegistryVerifier) {}
 
   async load(
