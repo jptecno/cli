@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0](https://github.com/jptecno/cli/compare/v0.4.1...v0.5.0) (2026-08-09)
+
+
+### Features
+
+* **harness:** adiciona fonte Git de worktree ([8ec30e8](https://github.com/jptecno/cli/commit/8ec30e8dbb6b2994f83edecff8694b5fbc98289d))
+* **harness:** adiciona fonte Git para integração ([2d361a7](https://github.com/jptecno/cli/commit/2d361a7b1ed20bc7ba184023a0b9f08a1e262740))
+* **harness:** expõe execução com registry em memória ([e245dc4](https://github.com/jptecno/cli/commit/e245dc40cd2a91f10aa3d6900c51ea32a6c77ff1))
+* **harness:** promove fonte Git de integração ([5f53c60](https://github.com/jptecno/cli/commit/5f53c6026dadc5709cb52ecfc8e6a81836bac091))
+
 ## [0.4.1](https://github.com/jptecno/cli/compare/v0.4.0...v0.4.1) (2026-08-09)
 
 
