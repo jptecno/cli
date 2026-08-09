@@ -141,4 +141,4 @@ jobs:
             --title "chore(release): sincroniza ${RELEASE_TAG} em development" \
             --body-file /tmp/release-sync-pr.md
 
-          gh workflow run ci.yml --ref "${branch}"
+          # A PR criada já dispara ci.yml pelo evento pull_request.
