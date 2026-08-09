@@ -160,11 +160,16 @@ function isForbiddenLink(entry: unknown): boolean {
 
 function isSafeArchivePath(entryPath: string): boolean {
   const normalizedPath = entryPath.replaceAll('\\', '/');
+  const pathWithoutDirectoryMarker = normalizedPath.endsWith('/')
+    ? normalizedPath.slice(0, -1)
+    : normalizedPath;
 
   return (
-    normalizedPath.length > 0 &&
+    pathWithoutDirectoryMarker.length > 0 &&
     !normalizedPath.startsWith('/') &&
-    !normalizedPath.split('/').some((part) => part === '..' || part === '')
+    !pathWithoutDirectoryMarker
+      .split('/')
+      .some((part) => part === '..' || part === '')
   );
 }
 
