@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import {
   lstat,
+  mkdir,
   mkdtemp,
   readdir,
   readFile,
@@ -63,6 +64,31 @@ describe('GitWorktreeTemplateSource', () => {
     await expect(
       lstat(join(destination, 'não-versionado.txt')),
     ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('materializa a árvore Git com diretórios aninhados', async () => {
+    const fixture = await createRepository();
+    const destination = await createTemporaryDirectory();
+    const directory = join(fixture.directory, 'src', 'config');
+
+    await mkdir(directory, { recursive: true });
+    await writeFile(join(directory, 'app.json'), '{"name":"template"}');
+    await git(fixture.directory, ['add', 'src/config/app.json']);
+    const commitSha = await createCommit(
+      fixture.directory,
+      'adiciona diretórios',
+    );
+
+    await new GitWorktreeTemplateSource({
+      sourceDirectory: fixture.directory,
+      expectedRepository: template.repository,
+      expectedCommit: commitSha,
+    }).materialize(template, destination);
+
+    await expect(
+      readFile(join(destination, 'src', 'config', 'app.json'), 'utf8'),
+    ).resolves.toBe('{"name":"template"}');
+    expect((await lstat(join(destination, 'src'))).isDirectory()).toBe(true);
   });
 
   it('rejeita repositório ou commit divergentes sem gravar no destino', async () => {
