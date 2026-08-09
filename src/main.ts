@@ -2,15 +2,15 @@
 
 import { readFile } from 'node:fs/promises';
 
-import { GitHubRegistryClient } from './adapters/github-registry-client.js';
 import { GitHubTemplateSource } from './adapters/github-template-source.js';
 import { ProcessCommandExecutor } from './adapters/process-command-executor.js';
 import { ProcessToolInspector } from './adapters/process-tool-inspector.js';
 import { ReadlinePrompt } from './adapters/readline-prompt.js';
 import { runCli } from './application/run-cli.js';
+import { createOfficialRegistryLoader } from './composition/official-registry-loader.js';
 
 process.exitCode = await runCli(process.argv.slice(2), {
-  registryClient: new GitHubRegistryClient(),
+  loadTrustedRegistry: createOfficialRegistryLoader(),
   templateSource: new GitHubTemplateSource(),
   commandExecutor: new ProcessCommandExecutor(),
   toolInspector: new ProcessToolInspector(),

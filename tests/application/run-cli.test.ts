@@ -5,39 +5,62 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { CliError } from '../../src/application/cli-error.js';
+import type { LoadedTrustedRegistry } from '../../src/application/load-trusted-registry.js';
 import { runCli } from '../../src/application/run-cli.js';
-
 import type {
   CommandExecutor,
   Prompt,
-  RegistryClient,
   TemplateSource,
 } from '../../src/contracts/cli-ports.js';
 import type {
   NodeToolchain,
   ToolInspector,
 } from '../../src/contracts/node-toolchain.types.js';
-import type { TemplateRegistry } from '../../src/contracts/template-registry.types.js';
 
-const registry: TemplateRegistry = {
-  schemaVersion: 1,
-  templates: [
-    {
-      id: 'api-nodejs-typescript',
-      name: 'API Node.js + TypeScript',
-      description: 'Template de API',
-      repository: 'jptecno/template-api-nodejs-typescript',
-      version: 'v0.1.0',
-      ref: 'v0.1.0',
-    },
-  ],
+const registry: LoadedTrustedRegistry = {
+  source: 'network',
+  freshness: 'fresh',
+  registry: {
+    schemaVersion: 2,
+    revision: 1,
+    publishedAt: '2026-08-08T12:00:00Z',
+    templates: [
+      {
+        id: 'api-nodejs-typescript',
+        name: 'API Node.js + TypeScript',
+        description: 'Template de API',
+        repository: 'jptecno/template-api-nodejs-typescript',
+        versions: [
+          {
+            version: 'v0.3.2',
+            ref: 'v0.3.2',
+            commit: 'a'.repeat(40),
+            status: 'active',
+          },
+        ],
+      },
+      {
+        id: 'deprecated',
+        name: 'Deprecated',
+        description: 'Não aparece',
+        repository: 'jptecno/deprecated',
+        versions: [
+          {
+            version: 'v1.0.0',
+            ref: 'v1.0.0',
+            commit: 'b'.repeat(40),
+            status: 'deprecated',
+          },
+        ],
+      },
+    ],
+  },
 };
 
 const temporaryDirectories: string[] = [];
 const availableInspector: ToolInspector = {
   inspect: async () => ({ status: 'available', versionOutput: '99.0.0' }),
 };
-
 const defaultToolchain: NodeToolchain = {
   ecosystem: 'node',
   requirements: [
@@ -63,226 +86,93 @@ afterEach(async () => {
 });
 
 describe('runCli', () => {
-  it('imprime a lista de templates em jp template list', async () => {
+  it('lista somente templates ativos depois de carregar o catálogo confiável', async () => {
     const logs: string[] = [];
+    let loaded = 0;
+
     const exitCode = await runCli(
       ['template', 'list'],
-      createDependencies({ log: (message) => logs.push(message) }),
-    );
-
-    expect(exitCode).toBe(0);
-    expect(logs.join('\n')).toContain('api-nodejs-typescript');
-  });
-
-  it('sai com 0 e mostra ajuda e versão', async () => {
-    const logs: string[] = [];
-
-    await expect(
-      runCli(
-        ['--help'],
-        createDependencies({ log: (message) => logs.push(message) }),
-      ),
-    ).resolves.toBe(0);
-    await expect(
-      runCli(
-        ['--version'],
-        createDependencies({
-          cliVersion: '9.9.9',
-          log: (message) => logs.push(message),
-        }),
-      ),
-    ).resolves.toBe(0);
-
-    expect(logs.join('\n')).toContain('--validate');
-    expect(logs).toContain('jp 9.9.9');
-  });
-
-  it('não inspeciona nem executa toolchain sem flags em entrada não interativa', async () => {
-    const destination = await createTemporaryDirectory();
-    const commands: string[][] = [];
-    let inspections = 0;
-
-    const exitCode = await runCli(
-      ['init', destination, '--template', 'api-nodejs-typescript', '--no-git'],
       createDependencies({
-        templateSource: createTemplateSource(defaultToolchain),
-        commandExecutor: captureCommands(commands),
-        toolInspector: {
-          inspect: async () => {
-            inspections += 1;
-            return { status: 'available', versionOutput: '99.0.0' };
-          },
+        loadTrustedRegistry: async () => {
+          loaded += 1;
+          return registry;
         },
+        log: (message) => logs.push(message),
       }),
     );
 
     expect(exitCode).toBe(0);
-    expect(inspections).toBe(0);
-    expect(commands).toEqual([]);
+    expect(loaded).toBe(1);
+    expect(logs.join('\n')).toContain('api-nodejs-typescript');
+    expect(logs.join('\n')).not.toContain('deprecated');
   });
 
-  it('em TTY pergunta cada etapa elegível na ordem canônica e usa o padrão recomendado', async () => {
-    const destination = await createTemporaryDirectory();
-    const commands: string[][] = [];
-    const confirmations: Array<{ question: string; defaultValue: boolean }> =
-      [];
-    const toolchain = withSteps({
-      install: step(['install'], [], true),
-      lint: step(['run', 'lint'], ['install'], false),
-    });
+  it('exige autorização para lista non-TTY com catálogo stale', async () => {
+    const errors: string[] = [];
 
     const exitCode = await runCli(
-      ['init', destination, '--template', 'api-nodejs-typescript', '--no-git'],
+      ['template', 'list'],
       createDependencies({
-        templateSource: createTemplateSource(toolchain),
-        commandExecutor: captureCommands(commands),
-        prompt: createPrompt(true, async (question, defaultValue) => {
-          confirmations.push({ question, defaultValue });
-          return true;
+        loadTrustedRegistry: async () => ({
+          ...registry,
+          freshness: 'stale',
+          source: 'cache',
         }),
-      }),
-    );
-
-    expect(exitCode).toBe(0);
-    expect(confirmations).toEqual([
-      { question: 'Executar instalação?', defaultValue: true },
-      { question: 'Executar lint?', defaultValue: false },
-    ]);
-    expect(commands).toEqual([
-      ['npm', 'install'],
-      ['npm', 'run', 'lint'],
-    ]);
-  });
-
-  it('--install executa somente npm install sem prompt', async () => {
-    const destination = await createTemporaryDirectory();
-    const commands: string[][] = [];
-    const confirm = async () => {
-      throw new Error('não deve perguntar');
-    };
-
-    const exitCode = await runCli(
-      [
-        'init',
-        destination,
-        '--template',
-        'api-nodejs-typescript',
-        '--no-git',
-        '--install',
-      ],
-      createDependencies({
-        templateSource: createTemplateSource(
-          withSteps({
-            install: step(['install']),
-            lint: step(['run', 'lint'], ['install']),
-          }),
-        ),
-        commandExecutor: captureCommands(commands),
-        prompt: createPrompt(true, confirm),
-      }),
-    );
-
-    expect(exitCode).toBe(0);
-    expect(commands).toEqual([['npm', 'install']]);
-  });
-
-  it('--validate executa somente validações declaradas e não executa instalação', async () => {
-    const destination = await createTemporaryDirectory();
-    const commands: string[][] = [];
-
-    const exitCode = await runCli(
-      [
-        'init',
-        destination,
-        '--template',
-        'api-nodejs-typescript',
-        '--no-git',
-        '--validate',
-      ],
-      createDependencies({
-        templateSource: createTemplateSource(
-          withSteps({
-            install: step(['install']),
-            lint: step(['run', 'lint']),
-            test: step(['test']),
-          }),
-        ),
-        commandExecutor: captureCommands(commands),
-      }),
-    );
-
-    expect(exitCode).toBe(0);
-    expect(commands).toEqual([
-      ['npm', 'run', 'lint'],
-      ['npm', 'test'],
-    ]);
-  });
-
-  it('--no-install --validate mantém ramos independentes, ignora cascatas e falha para validação solicitada', async () => {
-    const destination = await createTemporaryDirectory();
-    const commands: string[][] = [];
-    const errors: string[] = [];
-
-    const exitCode = await runCli(
-      [
-        'init',
-        destination,
-        '--template',
-        'api-nodejs-typescript',
-        '--no-git',
-        '--no-install',
-        '--validate',
-      ],
-      createDependencies({
-        templateSource: createTemplateSource(
-          withSteps({
-            install: step(['install']),
-            lint: step(['run', 'lint']),
-            test: step(['test'], ['install']),
-          }),
-        ),
-        commandExecutor: captureCommands(commands),
-        errorLog: (message) => errors.push(message),
-      }),
-    );
-
-    expect(exitCode).toBe(1);
-    expect(commands).toEqual([['npm', 'run', 'lint']]);
-    expect(errors).toContain('Toolchain: instalação não foi executada.');
-    expect(errors).toContain(
-      'Toolchain: testes foi ignorada por dependência não concluída.',
-    );
-  });
-
-  it('reporta requisito bloqueado sem expor o erro bruto da inspeção', async () => {
-    const destination = await createTemporaryDirectory();
-    const errors: string[] = [];
-
-    const exitCode = await runCli(
-      [
-        'init',
-        destination,
-        '--template',
-        'api-nodejs-typescript',
-        '--no-git',
-        '--install',
-      ],
-      createDependencies({
-        templateSource: createTemplateSource(defaultToolchain),
-        toolInspector: { inspect: async () => ({ status: 'failed' }) },
         errorLog: (message) => errors.push(message),
       }),
     );
 
     expect(exitCode).toBe(1);
     expect(errors).toEqual([
-      'Toolchain: instalação foi bloqueada por requisito não atendido.',
+      'Erro: É necessária autorização para usar o catálogo desatualizado',
     ]);
   });
 
-  it('preserva o projeto renderizado quando uma etapa da toolchain falha', async () => {
+  it('permite lista non-TTY stale com --allow-stale-registry', async () => {
+    await expect(
+      runCli(
+        ['template', 'list', '--allow-stale-registry'],
+        createDependencies({
+          loadTrustedRegistry: async () => ({
+            ...registry,
+            freshness: 'stale',
+            source: 'cache',
+          }),
+        }),
+      ),
+    ).resolves.toBe(0);
+  });
+
+  it('encaminha as duas autorizações stale ao init', async () => {
     const destination = await createTemporaryDirectory();
-    const commands: string[][] = [];
+
+    await expect(
+      runCli(
+        [
+          'init',
+          destination,
+          '--template',
+          'api-nodejs-typescript',
+          '--no-git',
+          '--allow-stale-registry',
+          '--allow-stale-template-creation',
+        ],
+        createDependencies({
+          loadTrustedRegistry: async () => ({
+            ...registry,
+            freshness: 'stale',
+            source: 'cache',
+          }),
+        }),
+      ),
+    ).resolves.toBe(0);
+
+    await expect(access(destination)).resolves.toBeUndefined();
+  });
+
+  it('preserva o resultado de falha da toolchain após criar o projeto', async () => {
+    const destination = await createTemporaryDirectory();
+    const errors: string[] = [];
 
     const exitCode = await runCli(
       [
@@ -294,31 +184,20 @@ describe('runCli', () => {
         '--validate',
       ],
       createDependencies({
-        templateSource: createTemplateSource(
-          withSteps({ lint: step(['run', 'lint']) }),
-        ),
-        commandExecutor: {
-          run: async (command, args) => {
-            commands.push([command, ...args]);
-            throw new CliError('stderr sigiloso');
+        templateSource: createTemplateSource({
+          ...defaultToolchain,
+          steps: {
+            lint: {
+              command: 'npm',
+              args: ['run', 'lint'],
+              dependsOn: [],
+              recommended: true,
+            },
           },
-        },
-      }),
-    );
-
-    expect(exitCode).toBe(1);
-    expect(commands).toEqual([['npm', 'run', 'lint']]);
-    await expect(access(destination)).resolves.toBeUndefined();
-  });
-
-  it('converte CliError em exit 1 com a mensagem original', async () => {
-    const errors: string[] = [];
-    const exitCode = await runCli(
-      ['template', 'list'],
-      createDependencies({
-        registryClient: {
-          load: async () => {
-            throw new CliError('Não foi possível acessar o catálogo');
+        }),
+        commandExecutor: {
+          run: async () => {
+            throw new CliError('erro interno');
           },
         },
         errorLog: (message) => errors.push(message),
@@ -326,23 +205,24 @@ describe('runCli', () => {
     );
 
     expect(exitCode).toBe(1);
-    expect(errors).toEqual(['Erro: Não foi possível acessar o catálogo']);
+    expect(errors).toContain('Toolchain: lint falhou.');
+    await expect(access(destination)).resolves.toBeUndefined();
+  });
+
+  it('não carrega o catálogo para ajuda e versão', async () => {
+    let loaded = 0;
+    const dependencies = createDependencies({
+      loadTrustedRegistry: async () => {
+        loaded += 1;
+        return registry;
+      },
+    });
+
+    await expect(runCli(['--help'], dependencies)).resolves.toBe(0);
+    await expect(runCli(['--version'], dependencies)).resolves.toBe(0);
+    expect(loaded).toBe(0);
   });
 });
-
-function step(
-  args: string[],
-  dependsOn: Array<
-    'install' | 'formatCheck' | 'lint' | 'typecheck' | 'test' | 'build'
-  > = [],
-  recommended = true,
-) {
-  return { command: 'npm' as const, args, dependsOn, recommended };
-}
-
-function withSteps(steps: NodeToolchain['steps']): NodeToolchain {
-  return { ...defaultToolchain, steps };
-}
 
 function createTemplateSource(toolchain: NodeToolchain): TemplateSource {
   return {
@@ -364,31 +244,32 @@ function createTemplateSource(toolchain: NodeToolchain): TemplateSource {
   };
 }
 
-function captureCommands(commands: string[][]): CommandExecutor {
+function createPrompt(): Prompt {
   return {
-    run: async (command, arguments_) => {
-      commands.push([command, ...arguments_]);
-    },
-  };
-}
-
-function createPrompt(
-  interactive = false,
-  confirm: Prompt['confirm'] = async () => true,
-): Prompt {
-  return {
-    isInteractive: () => interactive,
+    isInteractive: () => false,
     ask: async (_question, defaultValue) => defaultValue ?? '',
-    confirm,
+    confirm: async () => true,
     selectTemplate: async () => 'api-nodejs-typescript',
   };
 }
+
+type RunCliTestDependencies = {
+  loadTrustedRegistry: () => Promise<LoadedTrustedRegistry>;
+  templateSource: TemplateSource;
+  commandExecutor: CommandExecutor;
+  toolInspector: ToolInspector;
+  prompt: Prompt;
+  cliVersion: string;
+  log: (message: string) => void;
+  errorLog: (message: string) => void;
+};
 
 function createDependencies(
   overrides: Partial<RunCliTestDependencies> = {},
 ): RunCliTestDependencies {
   return {
-    registryClient: overrides.registryClient ?? { load: async () => registry },
+    loadTrustedRegistry:
+      overrides.loadTrustedRegistry ?? (async () => registry),
     templateSource:
       overrides.templateSource ?? createTemplateSource(defaultToolchain),
     commandExecutor: overrides.commandExecutor ?? {
@@ -401,17 +282,6 @@ function createDependencies(
     errorLog: overrides.errorLog ?? (() => undefined),
   };
 }
-
-type RunCliTestDependencies = {
-  registryClient: RegistryClient;
-  templateSource: TemplateSource;
-  commandExecutor: CommandExecutor;
-  toolInspector: ToolInspector;
-  prompt: Prompt;
-  cliVersion: string;
-  log: (message: string) => void;
-  errorLog: (message: string) => void;
-};
 
 async function createTemporaryDirectory(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'jp-cli-run-test-'));

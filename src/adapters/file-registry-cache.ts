@@ -8,6 +8,7 @@ import {
   unlink,
   writeFile,
 } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 
@@ -24,6 +25,38 @@ const cacheFileMode = 0o600;
 const cacheDirectoryMode = 0o700;
 const lockRetryIntervalMs = 10;
 const lockWaitTimeoutMs = 1_000;
+
+export interface RegistryCacheRootOptions {
+  platform?: NodeJS.Platform;
+  environment?: NodeJS.ProcessEnv;
+  homeDirectory?: string;
+}
+
+export function resolveRegistryCacheRoot(
+  options: RegistryCacheRootOptions = {},
+): string {
+  const platform = options.platform ?? process.platform;
+  const environment = options.environment ?? process.env;
+  const homeDirectory = options.homeDirectory ?? homedir();
+
+  if (platform === 'win32') {
+    return join(
+      environment.LOCALAPPDATA || join(homeDirectory, 'AppData', 'Local'),
+      'jptecno',
+      'registry',
+    );
+  }
+
+  if (platform === 'darwin') {
+    return join(homeDirectory, 'Library', 'Caches', 'jptecno', 'registry');
+  }
+
+  return join(
+    environment.XDG_CACHE_HOME || join(homeDirectory, '.cache'),
+    'jptecno',
+    'registry',
+  );
+}
 
 interface PersistedRegistryCacheEntry {
   payload: string;
@@ -202,11 +235,7 @@ export class FileRegistryCache implements RegistryCache {
             ...state,
             snapshot: serializeEntry(state.snapshot),
           } satisfies SerializedRegistryCacheState),
-          {
-            encoding: 'utf8',
-            mode: cacheFileMode,
-            flag: 'wx',
-          },
+          { encoding: 'utf8', mode: cacheFileMode, flag: 'wx' },
         );
         await chmod(temporaryPath, cacheFileMode);
         await rename(temporaryPath, path);
@@ -292,11 +321,10 @@ function isRevision(value: unknown): value is number {
 }
 
 function isBase64(value: unknown): value is string {
-  if (typeof value !== 'string') {
-    return false;
-  }
-
-  return Buffer.from(value, 'base64').toString('base64') === value;
+  return (
+    typeof value === 'string' &&
+    Buffer.from(value, 'base64').toString('base64') === value
+  );
 }
 
 function isIsoDate(value: unknown): value is string {

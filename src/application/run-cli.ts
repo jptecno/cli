@@ -1,14 +1,18 @@
 import type {
   CommandExecutor,
   Prompt,
-  RegistryClient,
   TemplateSource,
 } from '../contracts/cli-ports.js';
 import type { ToolInspector } from '../contracts/node-toolchain.types.js';
+import {
+  applyTrustedRegistry,
+  projectActiveTemplates,
+} from './apply-trusted-registry.js';
+import { authorizeStaleRegistryUse } from './authorize-stale-registry.js';
 import { CliError } from './cli-error.js';
-import { createProject } from './create-project.js';
 import { executeToolchainPlan } from './execute-toolchain-plan.js';
 import { formatTemplateList } from './format-template-list.js';
+import type { LoadedTrustedRegistry } from './load-trusted-registry.js';
 import {
   buildHelpText,
   type InitCommandOptions,
@@ -20,7 +24,7 @@ import type {
 } from './toolchain.types.js';
 
 export interface RunCliDependencies {
-  registryClient: RegistryClient;
+  loadTrustedRegistry: () => Promise<LoadedTrustedRegistry>;
   templateSource: TemplateSource;
   commandExecutor: CommandExecutor;
   toolInspector: ToolInspector;
@@ -57,29 +61,28 @@ export async function runCli(
       return successExitCode;
     }
 
-    warnWhenRegistryIsCustom(command.isCustomRegistry, dependencies.errorLog);
-
-    const registry = await dependencies.registryClient.load(
-      command.registryUrl,
-    );
+    const loadedRegistry = await dependencies.loadTrustedRegistry();
 
     if (command.kind === 'template-list') {
-      dependencies.log(formatTemplateList(registry.templates));
+      await authorizeStaleRegistryUse(
+        loadedRegistry,
+        {
+          allowStaleRegistry: command.allowStaleRegistry,
+          allowStaleTemplateCreation: false,
+        },
+        { prompt: dependencies.prompt },
+      );
+      dependencies.log(
+        formatTemplateList(projectActiveTemplates(loadedRegistry.registry)),
+      );
       return successExitCode;
     }
 
-    const templateId =
-      command.templateId ??
-      (await dependencies.prompt.selectTemplate(registry.templates));
-    const project = await createProject(
-      registry,
-      { ...command, templateId },
-      {
-        templateSource: dependencies.templateSource,
-        commandExecutor: dependencies.commandExecutor,
-        prompt: dependencies.prompt,
-      },
-    );
+    const project = await applyTrustedRegistry(loadedRegistry, command, {
+      templateSource: dependencies.templateSource,
+      commandExecutor: dependencies.commandExecutor,
+      prompt: dependencies.prompt,
+    });
 
     dependencies.log(
       `Projeto criado com ${project.template.name} ${project.template.version} em ${command.destination}`,
@@ -203,21 +206,6 @@ function formatStepStatus(
   } as const;
 
   return statuses[status];
-}
-
-function warnWhenRegistryIsCustom(
-  isCustomRegistry: boolean,
-  errorLog: (message: string) => void,
-): void {
-  if (!isCustomRegistry) {
-    return;
-  }
-
-  errorLog(
-    'Aviso: usando um registry de terceiros. Um registry controla qual ' +
-      'código (template) é baixado e executado neste computador; use apenas ' +
-      'registries em que você confia.',
-  );
 }
 
 function buildFallbackErrorMessage(error: unknown, argv: string[]): string {

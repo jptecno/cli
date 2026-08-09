@@ -3,7 +3,10 @@ import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
 import { Ed25519RegistryVerifier } from '../../src/adapters/ed25519-registry-verifier.js';
-import { officialRegistryKeyring } from '../../src/adapters/official-registry-keyring.js';
+import {
+  fingerprintRegistryKeyring,
+  officialRegistryKeyring,
+} from '../../src/adapters/official-registry-keyring.js';
 import type { RegistrySignatureEnvelope } from '../../src/contracts/registry-signature.types.js';
 
 const payload = Buffer.from('{"schemaVersion":2}');
@@ -87,6 +90,29 @@ describe('Ed25519RegistryVerifier', () => {
     expect(() =>
       verifier.verify(payload, { ...createEnvelope(), unexpected: true }),
     ).toThrow('O envelope de assinatura do catálogo é inválido');
+  });
+
+  it('gera fingerprint determinístico a partir dos pares keyId e PEM ordenados', () => {
+    const first = new Map([
+      ['b', 'PEM B'],
+      ['a', 'PEM A'],
+    ]);
+    const second = new Map([
+      ['a', 'PEM A'],
+      ['b', 'PEM B'],
+    ]);
+
+    expect(fingerprintRegistryKeyring(first)).toBe(
+      fingerprintRegistryKeyring(second),
+    );
+    expect(fingerprintRegistryKeyring(first)).not.toBe(
+      fingerprintRegistryKeyring(
+        new Map([
+          ['a', 'PEM alterado'],
+          ['b', 'PEM B'],
+        ]),
+      ),
+    );
   });
 
   it('mantém somente a chave pública oficial associada ao keyId publicado', () => {
