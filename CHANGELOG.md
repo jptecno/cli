@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.4.0](https://github.com/jptecno/cli/compare/v0.3.2...v0.4.0) (2026-08-09)
+
+
+### Features
+
+* **application:** adiciona autorização para catálogo desatualizado ([6012787](https://github.com/jptecno/cli/commit/60127873b2a56da40f1a7c568e48e60c3a0e3694))
+* **application:** adiciona autorização para catálogo desatualizado ([e316b1b](https://github.com/jptecno/cli/commit/e316b1bf417012670e026f898d3b61dc00a5e6a0))
+* **hardening:** adiciona plano e contratos v2 ([6da1e4d](https://github.com/jptecno/cli/commit/6da1e4d519e5d6f8fea800df2fd081860196426d))
+* **manifest:** restringe toolchain Node ([8172a82](https://github.com/jptecno/cli/commit/8172a8249950b1d53767c1ff9fbbf27b7e887fe9))
+* **manifest:** restringe toolchain Node ([3be2568](https://github.com/jptecno/cli/commit/3be25689a48d965dccecbab91d39fce0ed72051f))
+* **registry:** adiciona cache verificado e proteção contra rollback ([5e967d1](https://github.com/jptecno/cli/commit/5e967d1d1f9d0738c0adb784d7ad89b0b9f5f04e))
+* **registry:** adiciona cache verificado e proteção contra rollback ([3c9e335](https://github.com/jptecno/cli/commit/3c9e335840facb148ba84921054e8a7d1ecdafb5))
+* **registry:** adiciona carregamento confiável do catálogo v2 ([96177f3](https://github.com/jptecno/cli/commit/96177f39bbccd86630b4f304be8ca440a24761f4))
+* **registry:** adiciona carregamento confiável do catálogo v2 ([ad3e313](https://github.com/jptecno/cli/commit/ad3e3132159949c73f1c5a31b3ba2b6ff9991b07))
+* **registry:** adiciona contratos v2 isolados ([ed191b8](https://github.com/jptecno/cli/commit/ed191b8eba972aaf258f38400ab58eb9835ba2af))
+* **registry:** adiciona download verificado do catálogo ([66cd531](https://github.com/jptecno/cli/commit/66cd531a09e5c8aaffbc5a240237422b2f0577e9))
+* **registry:** adiciona download verificado do catálogo ([441c3fd](https://github.com/jptecno/cli/commit/441c3fdf16bc7c2ff5b142508c9e5df4fb54db32))
+* **registry:** adiciona fallback seguro do cache ([1b2311a](https://github.com/jptecno/cli/commit/1b2311af4ced542a1feda39c9472df7a97f87372))
+* **registry:** adiciona fallback seguro do cache ([8ab4ba0](https://github.com/jptecno/cli/commit/8ab4ba0435abf9a8a6156285e7f377436f801a93))
+* **registry:** adiciona verificação Ed25519 ([a75e17b](https://github.com/jptecno/cli/commit/a75e17b6810a930389285c6b20fc7fd273da46d9))
+* **registry:** adiciona verificação Ed25519 ([c9dd6f3](https://github.com/jptecno/cli/commit/c9dd6f35fc1bb2eb4ac73a97c8d4f5aca4930b29))
+* **registry:** aplica catálogo v2 confiável ([be3d23f](https://github.com/jptecno/cli/commit/be3d23f88bf14d166338fb39ab57e6a1d4b7471f))
+* **registry:** aplica catálogo v2 confiável ([c9a22dd](https://github.com/jptecno/cli/commit/c9a22dd66868f00df7e73499d7e862ee8fe5af65))
+* **registry:** ativa catálogo oficial assinado ([7f231e0](https://github.com/jptecno/cli/commit/7f231e0221d135cc8ca52c773c69505485c4ac1a))
+* **registry:** ativa catálogo oficial assinado ([e05b601](https://github.com/jptecno/cli/commit/e05b6013e4f4873d18eca81284786e8aff14d718))
+* **registry:** ativa catálogo oficial assinado ([c0e0457](https://github.com/jptecno/cli/commit/c0e04570885570f6103c3b6b825c99d3ec9c778f))
+* **toolchain:** adiciona execução interativa ([6c7126d](https://github.com/jptecno/cli/commit/6c7126da91e700c12abf166564b142851b85221d))
+* **toolchain:** adiciona execução interativa ([95b7736](https://github.com/jptecno/cli/commit/95b7736957c93c6b9e7113e100d5b09555cab92d))
+* **toolchain:** adiciona inspeção segura de ferramentas ([b5f72fc](https://github.com/jptecno/cli/commit/b5f72fc82489fe331456175be0a58a5c74452c97))
+* **toolchain:** adiciona inspeção segura de ferramentas ([43abf14](https://github.com/jptecno/cli/commit/43abf14ca0c47257e0bb21b386051b298f2ac928))
+* **toolchain:** adiciona planejamento e execução sequencial ([9c5b5a4](https://github.com/jptecno/cli/commit/9c5b5a4248f2c9172c2e2136d3a266c413d535c8))
+* **toolchain:** adiciona planejamento e execução sequencial ([a94cc39](https://github.com/jptecno/cli/commit/a94cc39ce07703d6297b62a26a1a59f00ea05808))
+
+
+### Bug Fixes
+
+* **schemas:** torna verificação vendorizada independente ([674898b](https://github.com/jptecno/cli/commit/674898bb6b52c4a196c2c89b8764b6809ebc471b))
+* **template:** baixa archive v2 pelo commit validado ([3d40038](https://github.com/jptecno/cli/commit/3d400383d4e3b4f2f9beb807223a9865691ad125))
+* **template:** baixa archive v2 pelo commit validado ([be97f9c](https://github.com/jptecno/cli/commit/be97f9c1d9c17f65d66ae6a87efccfac0b8d4f04))
+
 ## [0.3.2](https://github.com/jptecno/cli/compare/v0.3.1...v0.3.2) (2026-08-07)
 
 
