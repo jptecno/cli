@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/jptecno/cli/compare/v0.4.0...v0.4.1) (2026-08-09)
+
+
+### Bug Fixes
+
+* **release:** remove dispatch redundante de sincronização ([9f8b124](https://github.com/jptecno/cli/commit/9f8b12491872e5f47e929c99fea27ca1429b2492))
+* **release:** remove dispatch redundante de sincronização ([fcd08c9](https://github.com/jptecno/cli/commit/fcd08c911c091ea04f3146fcaa0643f8222b727a))
+
 ## [0.4.0](https://github.com/jptecno/cli/compare/v0.3.2...v0.4.0) (2026-08-09)
 
 
