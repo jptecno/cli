@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.0](https://github.com/jptecno/cli/compare/v0.5.0...v0.6.0) (2026-08-09)
+
+
+### Features
+
+* **harness:** adiciona gerador por worktree ([569923b](https://github.com/jptecno/cli/commit/569923babb3a40fd1adf3e70cf97676b8f85a021))
+* **harness:** adiciona gerador por worktree ([baa4501](https://github.com/jptecno/cli/commit/baa4501775eb22aec58bb6d3bd86b7b9b504648f))
+* **harness:** promove gerador por worktree ([27fd949](https://github.com/jptecno/cli/commit/27fd9491ec9169261629e7d225183544b66f8246))
+
 ## [0.5.0](https://github.com/jptecno/cli/compare/v0.4.1...v0.5.0) (2026-08-09)
 
 
