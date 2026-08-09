@@ -5,6 +5,7 @@ export interface TemplateDefinition {
   repository: string;
   version: string;
   ref: string;
+  commit?: string;
 }
 
 export interface TemplateRegistry {

@@ -26,6 +26,21 @@ const templates: TemplateDefinition[] = [
 ];
 
 describe('ReadlinePrompt', () => {
+  it('identifica interação somente quando entrada e saída são TTY', () => {
+    expect(
+      new ReadlinePrompt(
+        new FakeTerminalInput(true),
+        new FakeTerminalOutput(true),
+      ).isInteractive(),
+    ).toBe(true);
+    expect(
+      new ReadlinePrompt(
+        new FakeTerminalInput(true),
+        new FakeTerminalOutput(false),
+      ).isInteractive(),
+    ).toBe(false);
+  });
+
   it('navega para o próximo template e confirma a seleção', async () => {
     const input = new FakeTerminalInput(true);
     const output = new FakeTerminalOutput(true);
@@ -62,6 +77,37 @@ describe('ReadlinePrompt', () => {
 
     await expect(selection).rejects.toThrow('Seleção de template cancelada');
     expect(input.rawModes).toEqual([true, false]);
+  });
+
+  it('confirma com o padrão verdadeiro ao pressionar Enter e mostra [Y/n]', async () => {
+    const input = new FakeTerminalInput(true);
+    const output = new FakeTerminalOutput(true);
+    const answer = new ReadlinePrompt(input, output).confirm(
+      'Executar instalação?',
+      true,
+    );
+
+    input.write('\n');
+
+    await expect(answer).resolves.toBe(true);
+    expect(output.content).toContain('Executar instalação? [Y/n]: ');
+  });
+
+  it('aceita n e repete a pergunta após resposta inválida', async () => {
+    const input = new FakeTerminalInput(true);
+    const output = new FakeTerminalOutput(true);
+    const answer = new ReadlinePrompt(input, output).confirm(
+      'Executar testes?',
+      false,
+    );
+
+    input.write('talvez\n');
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    input.write('n\n');
+
+    await expect(answer).resolves.toBe(false);
+    expect(output.content).toContain('Executar testes? [y/N]: ');
+    expect(output.content).toContain('Resposta inválida. Responda y ou n. ');
   });
 
   it('exige --template fora de um terminal interativo', async () => {

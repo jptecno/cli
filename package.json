@@ -43,20 +43,23 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+    "verify:vendored-schemas": "node scripts/verify-vendored-schemas.mjs",
+    "vendor:schemas": "node scripts/vendor-schemas.mjs",
+    "check": "npm run verify:vendored-schemas && npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "tar": "^7.5.22"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
     "@tsconfig/node24": "^24.0.4",
-    "@vitest/coverage-v8": "^4.1.10",
     "@types/node": "^26.1.2",
+    "@vitest/coverage-v8": "^4.1.10",
     "danger": "13.0.10",
     "lefthook": "2.1.10",
     "tsx": "^4.19.2",
-    "vitest": "^4.1.10",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "^4.1.10"
   }
 }

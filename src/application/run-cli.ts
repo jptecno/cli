@@ -1,18 +1,33 @@
 import type {
   CommandExecutor,
   Prompt,
-  RegistryClient,
   TemplateSource,
 } from '../contracts/cli-ports.js';
+import type { ToolInspector } from '../contracts/node-toolchain.types.js';
+import {
+  applyTrustedRegistry,
+  projectActiveTemplates,
+} from './apply-trusted-registry.js';
+import { authorizeStaleRegistryUse } from './authorize-stale-registry.js';
 import { CliError } from './cli-error.js';
-import { createProject } from './create-project.js';
+import { executeToolchainPlan } from './execute-toolchain-plan.js';
 import { formatTemplateList } from './format-template-list.js';
-import { buildHelpText, parseCliCommand } from './parse-cli-command.js';
+import type { LoadedTrustedRegistry } from './load-trusted-registry.js';
+import {
+  buildHelpText,
+  type InitCommandOptions,
+  parseCliCommand,
+} from './parse-cli-command.js';
+import type {
+  ToolchainExecutionResult,
+  ToolchainStepName,
+} from './toolchain.types.js';
 
 export interface RunCliDependencies {
-  registryClient: RegistryClient;
+  loadTrustedRegistry: () => Promise<LoadedTrustedRegistry>;
   templateSource: TemplateSource;
   commandExecutor: CommandExecutor;
+  toolInspector: ToolInspector;
   prompt: Prompt;
   cliVersion: string;
   log: (message: string) => void;
@@ -21,6 +36,13 @@ export interface RunCliDependencies {
 
 const successExitCode = 0;
 const failureExitCode = 1;
+const validationSteps: ToolchainStepName[] = [
+  'formatCheck',
+  'lint',
+  'typecheck',
+  'test',
+  'build',
+];
 
 export async function runCli(
   argv: string[],
@@ -39,53 +61,151 @@ export async function runCli(
       return successExitCode;
     }
 
-    warnWhenRegistryIsCustom(command.isCustomRegistry, dependencies.errorLog);
-
-    const registry = await dependencies.registryClient.load(
-      command.registryUrl,
-    );
+    const loadedRegistry = await dependencies.loadTrustedRegistry();
 
     if (command.kind === 'template-list') {
-      dependencies.log(formatTemplateList(registry.templates));
+      await authorizeStaleRegistryUse(
+        loadedRegistry,
+        {
+          allowStaleRegistry: command.allowStaleRegistry,
+          allowStaleTemplateCreation: false,
+        },
+        { prompt: dependencies.prompt },
+      );
+      dependencies.log(
+        formatTemplateList(projectActiveTemplates(loadedRegistry.registry)),
+      );
       return successExitCode;
     }
 
-    const templateId =
-      command.templateId ??
-      (await dependencies.prompt.selectTemplate(registry.templates));
-    const template = await createProject(
-      registry,
-      { ...command, templateId },
+    const project = await applyTrustedRegistry(loadedRegistry, command, {
+      templateSource: dependencies.templateSource,
+      commandExecutor: dependencies.commandExecutor,
+      prompt: dependencies.prompt,
+    });
+
+    dependencies.log(
+      `Projeto criado com ${project.template.name} ${project.template.version} em ${command.destination}`,
+    );
+
+    if (!shouldExecuteToolchain(command, dependencies.prompt)) {
+      return successExitCode;
+    }
+
+    const result = await executeToolchainPlan(
+      project.toolchain,
       {
-        templateSource: dependencies.templateSource,
-        commandExecutor: dependencies.commandExecutor,
-        prompt: dependencies.prompt,
+        cwd: command.destination,
+        requestedSteps: requestedSteps(command, project.toolchain.steps),
+      },
+      {
+        toolInspector: dependencies.toolInspector,
+        run: (tool, args, cwd) =>
+          dependencies.commandExecutor.run(tool, args, cwd),
+        shouldRun: (step, definition) =>
+          shouldRunToolchainStep(
+            command,
+            step,
+            definition.recommended,
+            dependencies.prompt,
+          ),
       },
     );
 
-    dependencies.log(
-      `Projeto criado com ${template.name} ${template.version} em ${command.destination}`,
-    );
-    return successExitCode;
+    reportToolchainStatuses(result, dependencies.errorLog);
+    return result.exitCode;
   } catch (error) {
     dependencies.errorLog(`Erro: ${buildFallbackErrorMessage(error, argv)}`);
     return failureExitCode;
   }
 }
 
-function warnWhenRegistryIsCustom(
-  isCustomRegistry: boolean,
-  errorLog: (message: string) => void,
-): void {
-  if (!isCustomRegistry) {
-    return;
+function shouldExecuteToolchain(
+  command: InitCommandOptions,
+  prompt: Prompt,
+): boolean {
+  return (
+    command.install ||
+    command.noInstall ||
+    command.validate ||
+    prompt.isInteractive()
+  );
+}
+
+function requestedSteps(
+  command: InitCommandOptions,
+  steps: Partial<Record<ToolchainStepName, unknown>>,
+): ToolchainStepName[] {
+  if (command.install) {
+    return ['install'];
   }
 
-  errorLog(
-    'Aviso: usando um registry de terceiros. Um registry controla qual ' +
-      'código (template) é baixado e executado neste computador; use apenas ' +
-      'registries em que você confia.',
-  );
+  if (command.validate) {
+    return validationSteps.filter((step) => steps[step] !== undefined);
+  }
+
+  return [];
+}
+
+function shouldRunToolchainStep(
+  command: InitCommandOptions,
+  step: ToolchainStepName,
+  recommended: boolean,
+  prompt: Prompt,
+): Promise<boolean> {
+  if (command.install) {
+    return Promise.resolve(step === 'install');
+  }
+
+  if (command.noInstall || command.validate) {
+    return Promise.resolve(step !== 'install' && command.validate);
+  }
+
+  return prompt.confirm(`Executar ${formatStepName(step)}?`, recommended);
+}
+
+function reportToolchainStatuses(
+  result: ToolchainExecutionResult,
+  errorLog: (message: string) => void,
+): void {
+  for (const item of result.steps) {
+    if (item.status === 'succeeded') {
+      continue;
+    }
+
+    errorLog(
+      `Toolchain: ${formatStepName(item.step)} ${formatStepStatus(item.status)}.`,
+    );
+  }
+}
+
+function formatStepName(step: ToolchainStepName): string {
+  const names: Record<ToolchainStepName, string> = {
+    install: 'instalação',
+    formatCheck: 'verificação de formatação',
+    lint: 'lint',
+    typecheck: 'verificação de tipos',
+    test: 'testes',
+    build: 'build',
+  };
+
+  return names[step];
+}
+
+function formatStepStatus(
+  status: Exclude<
+    ToolchainExecutionResult['steps'][number]['status'],
+    'succeeded'
+  >,
+): string {
+  const statuses = {
+    failed: 'falhou',
+    declined: 'não foi executada',
+    'blocked-requirement': 'foi bloqueada por requisito não atendido',
+    'skipped-dependency': 'foi ignorada por dependência não concluída',
+  } as const;
+
+  return statuses[status];
 }
 
 function buildFallbackErrorMessage(error: unknown, argv: string[]): string {

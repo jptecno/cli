@@ -1,0 +1,73 @@
+export const toolchainStepNames = [
+  'install',
+  'formatCheck',
+  'lint',
+  'typecheck',
+  'test',
+  'build',
+] as const;
+
+export type ToolchainStepName = (typeof toolchainStepNames)[number];
+export type SupportedTool = 'node' | 'npm';
+
+export function isSupportedTool(value: string): value is SupportedTool {
+  return value === 'node' || value === 'npm';
+}
+
+export interface ToolchainRequirement {
+  tool: SupportedTool;
+  minimumVersion: string;
+}
+
+export interface ToolchainStep {
+  command: 'npm';
+  args: string[];
+  dependsOn: ToolchainStepName[];
+  recommended: boolean;
+}
+
+export interface NodeToolchain {
+  ecosystem: 'node';
+  requirements: ToolchainRequirement[];
+  steps: Partial<Record<ToolchainStepName, ToolchainStep>>;
+}
+
+export type ToolInspection =
+  | { status: 'available'; versionOutput: string }
+  | { status: 'unavailable' }
+  | { status: 'failed' };
+
+export interface ToolInspector {
+  inspect(tool: SupportedTool): Promise<ToolInspection>;
+}
+
+export type ToolRequirementStatus =
+  | 'satisfied'
+  | 'unsupported'
+  | 'unavailable'
+  | 'inspection-failed'
+  | 'invalid-version'
+  | 'below-minimum';
+
+export interface ToolRequirementResult {
+  tool: SupportedTool;
+  minimumVersion: string;
+  status: ToolRequirementStatus;
+}
+
+export type ToolchainStepStatus =
+  | 'succeeded'
+  | 'failed'
+  | 'declined'
+  | 'blocked-requirement'
+  | 'skipped-dependency';
+
+export interface ToolchainStepResult {
+  step: ToolchainStepName;
+  status: ToolchainStepStatus;
+}
+
+export interface ToolchainExecutionResult {
+  steps: ToolchainStepResult[];
+  exitCode: 0 | 1;
+}

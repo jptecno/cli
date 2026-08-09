@@ -28,6 +28,10 @@ export class ReadlinePrompt implements Prompt {
     private readonly output: TerminalOutput = stdout,
   ) {}
 
+  isInteractive(): boolean {
+    return this.input.isTTY === true && this.output.isTTY === true;
+  }
+
   async selectTemplate(templates: TemplateDefinition[]): Promise<string> {
     if (templates.length === 0) {
       throw new CliError('Não há templates disponíveis para seleção');
@@ -35,7 +39,7 @@ export class ReadlinePrompt implements Prompt {
 
     const rawModeSetter = this.input.setRawMode;
 
-    if (!this.input.isTTY || !this.output.isTTY || !rawModeSetter) {
+    if (!this.isInteractive() || !rawModeSetter) {
       throw new CliError(
         'Seleção interativa indisponível; informe --template <id>',
       );
@@ -132,6 +136,38 @@ export class ReadlinePrompt implements Prompt {
     try {
       const answer = await readline.question(prompt);
       return answer.trim() || defaultValue || '';
+    } finally {
+      readline.close();
+    }
+  }
+
+  async confirm(question: string, defaultValue: boolean): Promise<boolean> {
+    const suffix = defaultValue ? '[Y/n]' : '[y/N]';
+    const readline = createInterface({
+      input: this.input,
+      output: this.output,
+    });
+
+    try {
+      let currentQuestion = `${question} ${suffix}: `;
+
+      while (true) {
+        const answer = (await readline.question(currentQuestion)).trim();
+
+        if (answer === '') {
+          return defaultValue;
+        }
+
+        if (answer === 'y' || answer === 'Y') {
+          return true;
+        }
+
+        if (answer === 'n' || answer === 'N') {
+          return false;
+        }
+
+        currentQuestion = 'Resposta inválida. Responda y ou n. ';
+      }
     } finally {
       readline.close();
     }

@@ -67,7 +67,32 @@ describe('createGitHubArchiveUrl', () => {
 });
 
 describe('GitHubTemplateSource', () => {
-  it('informa em português quando o download do archive excede o tempo limite', async () => {
+  it('baixa template v2 pelo commit validado, mesmo quando a ref é diferente', async () => {
+    const destination = await createTemporaryDirectory();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(new DOMException('', 'TimeoutError'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      new GitHubTemplateSource().materialize(
+        {
+          ...template,
+          ref: 'v0.1.0',
+          commit: 'a'.repeat(40),
+        },
+        destination,
+      ),
+    ).rejects.toThrow(
+      'Não foi possível baixar api-nodejs-typescript: a solicitação excedeu o tempo limite de 30 segundos',
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      `https://codeload.github.com/jptecno/template-api-nodejs-typescript/tar.gz/${'a'.repeat(40)}`,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it('mantém a ref para templates v1 sem commit', async () => {
     const destination = await createTemporaryDirectory();
     const fetchMock = vi
       .fn()

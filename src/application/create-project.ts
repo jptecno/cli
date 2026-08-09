@@ -13,6 +13,7 @@ import type {
   Prompt,
   TemplateSource,
 } from '../contracts/cli-ports.js';
+import type { NodeToolchain } from '../contracts/node-toolchain.types.js';
 import type {
   TemplateManifest,
   TemplateVariable,
@@ -28,9 +29,12 @@ export interface CreateProjectOptions {
   destination: string;
   templateId: string;
   values: Record<string, string>;
-  installDependencies: boolean;
   initializeGit: boolean;
-  validateProject: boolean;
+}
+
+export interface CreateProjectResult {
+  template: TemplateDefinition;
+  toolchain: NodeToolchain;
 }
 
 export interface CreateProjectDependencies {
@@ -43,7 +47,7 @@ export async function createProject(
   registry: TemplateRegistry,
   options: CreateProjectOptions,
   dependencies: CreateProjectDependencies,
-): Promise<TemplateDefinition> {
+): Promise<CreateProjectResult> {
   const template = registry.templates.find(
     (item) => item.id === options.templateId,
   );
@@ -52,9 +56,19 @@ export async function createProject(
     throw new CliError(`Template não encontrado: ${options.templateId}`);
   }
 
+  return createProjectFromTemplate(template, options, dependencies);
+}
+
+export async function createProjectFromTemplate(
+  template: TemplateDefinition,
+  options: CreateProjectOptions,
+  dependencies: CreateProjectDependencies,
+): Promise<CreateProjectResult> {
   const destinationWasCreated = await ensureDestinationIsEmpty(
     options.destination,
   );
+
+  let toolchain: NodeToolchain;
 
   try {
     await dependencies.templateSource.materialize(
@@ -70,6 +84,12 @@ export async function createProject(
       );
     }
 
+    if (manifest.repository !== template.repository) {
+      throw new CliError(
+        'O manifesto baixado não corresponde ao repositório do template solicitado',
+      );
+    }
+
     ensureProvidedValuesAreDeclared(manifest, options.values);
 
     const values = await resolveVariables(
@@ -78,72 +98,22 @@ export async function createProject(
       dependencies.prompt,
     );
     await renderTemplateFiles(options.destination, manifest, values);
+    toolchain = manifest.toolchain;
     await removeTemplateMetadata(options.destination);
   } catch (error) {
     await rollbackDestination(options.destination, destinationWasCreated);
     throw error;
   }
 
-  // A partir daqui o projeto já está íntegro em `options.destination`: os
-  // arquivos foram renderizados, validados e o metadata do template
-  // removido. `git init`, `npm install` e `npm run check` são conveniências
-  // pós-criação — sua falha (lint quebrado, dependência com breaking change,
-  // rede instável) não justifica apagar um projeto completo e válido, então
-  // nenhuma etapa a partir daqui aciona rollback.
   if (options.initializeGit) {
-    await runPostCreationCommand(
-      dependencies.commandExecutor,
+    await dependencies.commandExecutor.run(
       'git',
       ['init'],
       options.destination,
     );
   }
 
-  if (options.installDependencies) {
-    await runPostCreationCommand(
-      dependencies.commandExecutor,
-      'npm',
-      ['install'],
-      options.destination,
-    );
-  }
-
-  if (options.validateProject) {
-    await runPostCreationCommand(
-      dependencies.commandExecutor,
-      'npm',
-      ['run', 'check'],
-      options.destination,
-    );
-  }
-
-  return template;
-}
-
-/**
- * Executa um comando pós-criação e, se ele falhar, lança um novo `CliError`
- * deixando claro que o projeto já foi criado em `destination` e qual etapa
- * falhou, com a mensagem original preservada no texto e uma sugestão de
- * como executar o comando manualmente. Isso evita que uma falha esperada
- * (lint quebrado no template, rede instável durante `npm install`) pareça
- * "não deu certo, tente de novo" quando na verdade o projeto está lá.
- */
-async function runPostCreationCommand(
-  commandExecutor: CommandExecutor,
-  command: string,
-  arguments_: string[],
-  destination: string,
-): Promise<void> {
-  const commandLabel = [command, ...arguments_].join(' ');
-
-  try {
-    await commandExecutor.run(command, arguments_, destination);
-  } catch (error) {
-    throw new CliError(
-      `O projeto foi criado em ${destination}, mas a etapa "${commandLabel}" falhou: ${formatError(error)}. ` +
-        `Você pode executar "${commandLabel}" manualmente dentro de ${destination}.`,
-    );
-  }
+  return { template, toolchain };
 }
 
 /**
