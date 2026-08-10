@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.1](https://github.com/jptecno/cli/compare/v0.6.0...v0.6.1) (2026-08-09)
+
+
+### Bug Fixes
+
+* **archive:** aceita entradas de diretório do git archive ([b32e832](https://github.com/jptecno/cli/commit/b32e83239550af452470ca4259cd13e6fc27365e))
+* **archive:** aceita entradas de diretório do git archive ([8900107](https://github.com/jptecno/cli/commit/890010763519c65e688456bb5ac16f32187f11ed))
+* **archive:** promove correção de diretórios Git ([a819d74](https://github.com/jptecno/cli/commit/a819d7444c3ed7e639bca0e75b29d4b82db80989))
+
 ## [0.6.0](https://github.com/jptecno/cli/compare/v0.5.0...v0.6.0) (2026-08-09)
 
 
