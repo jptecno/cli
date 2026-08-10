@@ -1,4 +1,6 @@
 import { GitWorktreeTemplateSource } from '../adapters/git-worktree-template-source.js';
+import type { CommandExecutor } from '../contracts/cli-ports.js';
+import type { ToolInspector } from '../contracts/node-toolchain.types.js';
 import { runCliHarness } from './cli-harness.js';
 
 export interface GenerateProjectFromWorktreeOptions {
@@ -10,12 +12,18 @@ export interface GenerateProjectFromWorktreeOptions {
   variables: Record<string, string>;
 }
 
+export interface GenerateProjectFromWorktreeDependencies {
+  commandExecutor?: CommandExecutor;
+  toolInspector?: ToolInspector;
+}
+
 /**
  * Gera um projeto a partir de um worktree local pelo mesmo fluxo do comando
  * `jp init`, sem depender da interface de linha de comando de produção.
  */
 export function generateProjectFromWorktree(
   options: GenerateProjectFromWorktreeOptions,
+  dependencies: GenerateProjectFromWorktreeDependencies = {},
 ): Promise<number> {
   return runCliHarness(
     [
@@ -57,8 +65,10 @@ export function generateProjectFromWorktree(
         expectedRepository: options.expectedRepository,
         expectedCommit: options.expectedCommit,
       }),
-      commandExecutor: { run: async () => undefined },
-      toolInspector: {
+      commandExecutor: dependencies.commandExecutor ?? {
+        run: async () => undefined,
+      },
+      toolInspector: dependencies.toolInspector ?? {
         inspect: async () => ({ status: 'unavailable' }),
       },
       prompt: {
