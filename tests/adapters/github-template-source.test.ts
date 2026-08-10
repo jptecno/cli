@@ -269,13 +269,7 @@ async function createFakeArchiveBuffer(
     await writeFile(join(projectRoot, relativePath), content);
   }
 
-  const chunks: Buffer[] = [];
-  const packStream = tar.c({ gzip: true, cwd: sourceRoot }, ['template-root']);
-  for await (const chunk of packStream) {
-    chunks.push(chunk as Buffer);
-  }
-
-  return Buffer.concat(chunks);
+  return createArchiveBuffer(sourceRoot);
 }
 
 async function createFakeLinkArchiveBuffer(
@@ -296,11 +290,13 @@ async function createFakeLinkArchiveBuffer(
     await link(targetPath, linkPath);
   }
 
-  const chunks: Buffer[] = [];
-  const packStream = tar.c({ gzip: true, cwd: sourceRoot }, ['template-root']);
-  for await (const chunk of packStream) {
-    chunks.push(chunk as Buffer);
-  }
+  return createArchiveBuffer(sourceRoot);
+}
 
-  return Buffer.concat(chunks);
+async function createArchiveBuffer(sourceRoot: string): Promise<Buffer> {
+  const archivePath = join(sourceRoot, 'fixture.tar.gz');
+  await tar.c({ file: archivePath, gzip: true, cwd: sourceRoot }, [
+    'template-root',
+  ]);
+  return readFile(archivePath);
 }

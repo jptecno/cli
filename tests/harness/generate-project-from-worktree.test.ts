@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { generateProjectFromWorktree } from '../../src/harness/generate-project-from-worktree.js';
 
@@ -22,20 +22,31 @@ afterEach(async () => {
 });
 
 describe('generateProjectFromWorktree', () => {
-  it('gera e renderiza o projeto sem iniciar Git ou instalar dependências', async () => {
+  it('gera e renderiza o projeto sem comandos pós-criação', async () => {
     const fixture = await createTemplateRepository();
     const destination = join(await createTemporaryDirectory(), 'billing-api');
+    const run = vi.fn(async () => undefined);
+    const inspect = vi.fn(async () => ({ status: 'unavailable' as const }));
 
     await expect(
-      generateProjectFromWorktree({
-        sourceDirectory: fixture.directory,
-        expectedRepository: repository,
-        expectedCommit: fixture.commit,
-        destination,
-        templateId,
-        variables: { projectName: 'billing-api' },
-      }),
+      generateProjectFromWorktree(
+        {
+          sourceDirectory: fixture.directory,
+          expectedRepository: repository,
+          expectedCommit: fixture.commit,
+          destination,
+          templateId,
+          variables: { projectName: 'billing-api' },
+        },
+        {
+          commandExecutor: { run },
+          toolInspector: { inspect },
+        },
+      ),
     ).resolves.toBe(0);
+
+    expect(run).not.toHaveBeenCalled();
+    expect(inspect).not.toHaveBeenCalled();
 
     await expect(
       readFile(join(destination, 'README.md'), 'utf8'),
