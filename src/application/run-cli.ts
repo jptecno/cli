@@ -124,12 +124,7 @@ function shouldExecuteToolchain(
   command: InitCommandOptions,
   prompt: Prompt,
 ): boolean {
-  return (
-    command.install ||
-    command.noInstall ||
-    command.validate ||
-    prompt.isInteractive()
-  );
+  return command.install || command.validate || prompt.isInteractive();
 }
 
 function requestedSteps(
