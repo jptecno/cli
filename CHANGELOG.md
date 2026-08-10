@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.2](https://github.com/jptecno/cli/compare/v0.6.1...v0.6.2) (2026-08-10)
+
+
+### Bug Fixes
+
+* **harness:** evita comandos após materialização ([33b6ef5](https://github.com/jptecno/cli/commit/33b6ef52129b9405e0b33c9d7a5469f8968dd204))
+* **harness:** evita comandos após materialização ([b99d007](https://github.com/jptecno/cli/commit/b99d0077999d5a8837e808f57554373195029fc0))
+* **harness:** promove execução sem pós-criação ([4ee70eb](https://github.com/jptecno/cli/commit/4ee70ebdbd326f30fec355748f3396075fc8d53a))
+* **test:** estabiliza fixture de archive ([bd8a38b](https://github.com/jptecno/cli/commit/bd8a38ba8340cb7179da4516a9e537fa97ef64e5))
+* **test:** estabiliza fixture de archive ([b2b366a](https://github.com/jptecno/cli/commit/b2b366a51558165b9c7f64e080dd177b51d50633))
+
 ## [0.6.1](https://github.com/jptecno/cli/compare/v0.6.0...v0.6.1) (2026-08-09)
 
 
